@@ -9,7 +9,6 @@
  #include <stdint.h>
 #endif
 
-#define DCMBUFFLEN 0x1000
 #define BO0 0x000000FF
 #define BO1 0x0000FF00
 #define BO2 0x00FF0000
@@ -37,6 +36,8 @@
  typedef unsigned int byte4;
 #endif
 
+const unsigned int DCMBUFFLEN = 0x40000000;
+
 /***
  assuming byte 0 is on the left
  lendain 1 = 0x01000000
@@ -45,9 +46,13 @@
 const unsigned int ENDIAN1 = 1;
 const byte1* SYSLENDIAN = (byte1*)&ENDIAN1;
 
+/***
+ a buffer to pull file data into
+ maintains basic metadata
+***/
 typedef struct
 {
- fpos_t loc;
+ unsigned int num;
  byte1* raw;
  unsigned long long len;
  unsigned long long pos;
@@ -70,7 +75,8 @@ int dcmbuffdel(dcmbuff* buff)
 ***/
 typedef struct
 {
- fpos_t bound[2];
+ unsigned long long buffnum;
+ unsigned long long pos;
  byte2 tag[2];
  byte1 vr[2];
  unsigned int length;
@@ -136,48 +142,51 @@ int endianswap(byte1* toswap,unsigned int size)
  }
 }
 
-int firstbuff(dcmbuff* zero,FILE* dicom)
+int firstbuff(dcmbuff** zero)
 {
- fgetpos(dicom,&zero->loc);
- zero->raw=NULL;
- zero->len=0;
- zero->pos=0;
+ *zero=malloc(sizeof(dcmbuff));
+ (*zero)->num=0;
+ (*zero)->raw=malloc(DCMBUFFLEN);
+ (*zero)->len=DCMBUFFLEN;
+ (*zero)->pos=132;
  return 0;
 }
 
-int pullbuff(dcmbuff* new,FILE* dicom,unsigned int topull,dcmbuff* old)
+int pullbuff(dcmbuff** new,FILE* dicom,unsigned int topull,dcmbuff* old)
 {
  unsigned int leftover = old->len - old->pos;
  unsigned long long read;
 
- new = (dcmbuff*)malloc(sizeof(dcmbuff));
- new->pos=0;
- new->len=leftover+topull;
- fseek(dicom,-leftover,SEEK_CUR); fgetpos(dicom,&new->loc);
- new->raw = (byte1*)malloc(sizeof(byte1)*new->len);
+ *new = (dcmbuff*)malloc(sizeof(dcmbuff));
 
- read = fread(&new->raw[leftover],1,sizeof(byte1)*(topull+leftover),dicom);
- new->len = read+leftover;
+ (*new)->num = old->num+1;
+ (*new)->pos = 0;
+ (*new)->len = leftover+topull;
+ (*new)->raw = (byte1*)malloc(sizeof(byte1)*(*new)->len);
+
+ read = fread(&(*new)->raw[leftover],1,sizeof(byte1)*(topull+leftover),dicom);
+ (*new)->len = read+leftover;
 
  dcmbuffdel(old);
- fgetpos(dicom,&new->loc);
 
  if(feof(dicom)) return 1; if(ferror(dicom)) return 2;
  return 0;
 }
 
 /***
- return 0: DICM found @ 0x0100
- return 1: DICM not found @ 0x0100
+ return 0: read in full buffer, DICM found @ 0x0100
+ return 1: read in partial buffer, DICM found @ 0x100
+ return 2: DICM not found @ 0x0100
+ return 3: other error;
 ***/
-int initdicom(FILE* dicom)
+int initdicom(dcmbuff** zero,FILE* dicom)
 {
- int cur;
- fseek(dicom,128,SEEK_SET);
- cur=fgetc(dicom); if(cur!='D') return 1;
- cur=fgetc(dicom); if(cur!='I') return 1;
- cur=fgetc(dicom); if(cur!='C') return 1;
- cur=fgetc(dicom); if(cur!='M') return 1;
+ unsigned long long read;
+ firstbuff(zero);
+
+ if((read = fread((*zero)->raw,DCMBUFFLEN,1,dicom)) > 134) return 2;
+ if(strncmp(&(*zero)->raw[128],"DICM",4)) return 2;
+ if(feof(dicom)) return 1; if(ferror(dicom)) return 3;
  return 0;
 }
 
@@ -187,13 +196,19 @@ int initdicom(FILE* dicom)
  mode[0]: 0 means implicit vr
  mode[1]: 0 means bigendian
  return 0: data parsed into dest
- return 1: EOF encountered
+ return 1: buffer end encountered
  return 2: other error
 ***/
 int getelmeta(dcmel* dest, dcmbuff* source, int* mode)
 {
  if(source->pos-source->len < 8) return 1;
+ unsigned long long extra = source->len - DCMBUFFLEN;
+ 
  byte1* buff = &source->raw[source->pos];
+
+ dest->buffnum = source->len - source->pos > DCMBUFFLEN ? source->num - 1 : source->num;
+ dest->pos = source->num==dest->buffnum ? DCMBUFFLEN - extra + source->pos : source->pos - extra;
+ source->pos += 8;
 
  *(byte4*)dest->tag=*(byte4*)buff;
  if(*SYSLENDIAN!=mode[1])
@@ -204,19 +219,21 @@ int getelmeta(dcmel* dest, dcmbuff* source, int* mode)
 
  if(isnovr(dest->tag) || !mode[0])
   dest->length=((byte4*)buff)[1];
- else if(isshortvr(&((byte1*)source->raw)[4]))
+ else if(isshortvr(&buff[4]))
  {
-  *(byte2*)dest->vr=((byte2*)buff)[2];
+  memcpy(dest->vr,&buff[4],2);
   dest->length=((byte2*)buff)[3];
  }
  else
  {
-  *(byte2*)dest->vr=((byte2*)buff)[2];
+  if(source->pos-source->len < 4) {source->pos -= 8; return 1;}
+  source->pos += 4;
+  memcpy(dest->vr,&buff[4],2);
   dest->length=((byte4*)buff)[2];
  }
 
  if(*SYSLENDIAN!=mode[1])
-  endianswap((byte1*)&dest->length,2+2*isshortvr(dest->vr));
+  endianswap((byte1*)&dest->length,isshortvr(dest->vr) ? 2 : 4);
 
  return 0;
 }
@@ -269,20 +286,16 @@ int run(int argc,char** argv)
  flagcaveats(flagchart);
 
  FILE* dicom = fopen(mjhargsv(flagchart,2),"r");
- initdicom(dicom);
+ dcmbuff* zero;
+ initdicom(&zero,dicom);
 
- dcmel cheat;
- dcmel* this=&cheat;
- unsigned int length;
+ dcmel this;
+ int mode[] = {1,1}; 
  
- dcmbuff* zero; firstbuff(zero,dicom);
- dcmbuff* new;
- pullbuff(new,dicom,DCMBUFFLEN,zero);
- int mode[] = {1,1};
- getelmeta(this,new,mode);
+ getelmeta(&this,zero,mode);
 
- printf("%04x %04x %c%c %d\n",this->tag[0],this->tag[1],this->vr[0],this->vr[1],this->length);
- printf("%x %x %x %d\n",this->bound[0],this->bound[1],ftell(dicom),SYSLENDIAN);
+ printf("%04x %04x %c%c %d\n",this.tag[0],this.tag[1],this.vr[0],this.vr[1],this.length);
+ printf("%x %x %x %d\n",this.buffnum,zero->pos,ftell(dicom),*SYSLENDIAN);
 
  fclose(dicom);
  return 0;
