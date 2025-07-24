@@ -42,9 +42,10 @@ const unsigned int DCMBUFFLEN = 0x40000000;
  assuming byte 0 is on the left
  lendain 1 = 0x01000000
  bendian 1 = 0x00000001
+ if(*SYSLENDIAN) little endian stuff; else big endian stuff; 
 ***/
 const unsigned int ENDIAN1 = 1;
-const byte1* SYSLENDIAN = (byte1*)&ENDIAN1;
+const byte1 *SYSLENDIAN = (byte1*)&ENDIAN1;
 
 /***
  a buffer to pull file data into
@@ -53,12 +54,12 @@ const byte1* SYSLENDIAN = (byte1*)&ENDIAN1;
 typedef struct
 {
  unsigned int num;
- byte1* raw;
+ byte1 *raw;
  unsigned long long len;
  unsigned long long pos;
-}dcmbuff;
+} dcmbuff;
 
-int dcmbuffdel(dcmbuff* buff)
+int dcmbuffdel(dcmbuff *buff)
 {
  free(buff->raw);
  free(buff);
@@ -82,12 +83,12 @@ typedef struct
  unsigned int length;
  byte1* data;
  unsigned long long datastop;
-}dcmel;
+} dcmel;
 
 /***
  free(&dcmel) is bad
 ***/
-int dcmeldel(dcmel* element)
+int dcmeldel(dcmel *element)
 {
  free(element->data);
  free(element);
@@ -103,7 +104,7 @@ int isshortvr(char* vr)
  const char* VRSHORTS[] = {"AE","AS","AT","CS","DA","DS","DT","FL","FD","IS","LO","LT","PN","SH","SL","SS","ST","TM","UI","UL","US"};
  const unsigned int NVRSHORT = 21;
  int i;
- for(i=0;i<NVRSHORT && !strncmp(VRSHORTS[i],vr,2);i++);
+ for(i=0;i<NVRSHORT && strncmp(VRSHORTS[i],vr,2);i++);
  return i<NVRSHORT;
 }
 
@@ -119,7 +120,7 @@ const short DELIMITATION[] = {0xFFFE,0xE00D,0xFFFE,0xE0DD};
  From DICOM standard part 5 section 7.5
  these tags do not have vrs
 ***/
-int isnovr(byte2* tag)
+int isnovr(byte2 *tag)
 {
  const unsigned int NNOVRS = 3;
  const unsigned int NOVRS[] = {0xFFFEE00D,0xFFFEE0DD,0xFFFEE000};
@@ -131,7 +132,7 @@ int isnovr(byte2* tag)
 /***
  little endian <-> big endian
 ***/
-int endianswap(byte1* toswap,unsigned int size)
+int endianswap(byte1* toswap, unsigned int size)
 {
  int i;
  for(i=0;i<size/2;i++)
@@ -142,7 +143,7 @@ int endianswap(byte1* toswap,unsigned int size)
  }
 }
 
-int firstbuff(dcmbuff** zero)
+int firstbuff(dcmbuff **zero)
 {
  *zero=malloc(sizeof(dcmbuff));
  (*zero)->num=0;
@@ -152,24 +153,31 @@ int firstbuff(dcmbuff** zero)
  return 0;
 }
 
-int pullbuff(dcmbuff** new,FILE* dicom,unsigned int topull,dcmbuff* old)
+/***
+return 0: buffer pulled normally
+return 1: EOF encountered
+return 2: other error
+***/
+int pullbuff(dcmbuff **new, FILE *dicom, unsigned int topull, dcmbuff *old)
 {
  unsigned int leftover = old->len - old->pos;
  unsigned long long read;
 
- *new = (dcmbuff*)malloc(sizeof(dcmbuff));
+ *new = malloc(sizeof(dcmbuff));
 
  (*new)->num = old->num+1;
  (*new)->pos = 0;
  (*new)->len = leftover+topull;
- (*new)->raw = (byte1*)malloc(sizeof(byte1)*(*new)->len);
+ (*new)->raw = (byte1*)malloc((*new)->len);
 
- read = fread(&(*new)->raw[leftover],1,sizeof(byte1)*(topull+leftover),dicom);
+ read = fread(&(*new)->raw[leftover], 1, topull+leftover, dicom);
  (*new)->len = read+leftover;
 
  dcmbuffdel(old);
 
- if(feof(dicom)) return 1; if(ferror(dicom)) return 2;
+ if(feof(dicom)) return 1;
+ if(ferror(dicom)) return 2;
+
  return 0;
 }
 
@@ -186,7 +194,9 @@ int initdicom(dcmbuff** zero,FILE* dicom)
 
  if((read = fread((*zero)->raw,DCMBUFFLEN,1,dicom)) > 134) return 2;
  if(strncmp(&(*zero)->raw[128],"DICM",4)) return 2;
- if(feof(dicom)) return 1; if(ferror(dicom)) return 3;
+ if(feof(dicom)) return 1;
+ if(ferror(dicom)) return 3;
+
  return 0;
 }
 
@@ -199,18 +209,19 @@ int initdicom(dcmbuff** zero,FILE* dicom)
  return 1: buffer end encountered
  return 2: other error
 ***/
-int getelmeta(dcmel* dest, dcmbuff* source, int* mode)
+int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
 {
- if(source->pos-source->len < 8) return 1;
+ if(source->pos - source->len < 8) return 1;
  unsigned long long extra = source->len - DCMBUFFLEN;
  
  byte1* buff = &source->raw[source->pos];
 
- dest->buffnum = source->len - source->pos > DCMBUFFLEN ? source->num - 1 : source->num;
- dest->pos = source->num==dest->buffnum ? DCMBUFFLEN - extra + source->pos : source->pos - extra;
+ dest->buffnum = (source->len - source->pos > DCMBUFFLEN) ? (source->num - 1) : (source->num);
+ dest->pos = (source->num == dest->buffnum) ? (DCMBUFFLEN - extra + source->pos) : (source->pos - extra);
  source->pos += 8;
 
  *(byte4*)dest->tag=*(byte4*)buff;
+
  if(*SYSLENDIAN!=mode[1])
  {
   dest->tag[0] = dest->tag[0]&BO0<<8 + dest->tag[0]&BO1>>8;
@@ -218,7 +229,7 @@ int getelmeta(dcmel* dest, dcmbuff* source, int* mode)
  }
 
  if(isnovr(dest->tag) || !mode[0])
-  dest->length=((byte4*)buff)[1];
+  dest->length = ((byte4*)buff)[1];
  else if(isshortvr(&buff[4]))
  {
   memcpy(dest->vr,&buff[4],2);
@@ -226,20 +237,43 @@ int getelmeta(dcmel* dest, dcmbuff* source, int* mode)
  }
  else
  {
-  if(source->pos-source->len < 4) {source->pos -= 8; return 1;}
+  if(source->len - source->pos < 4)
+  {
+   source->pos -= 8;
+   return 1;
+  }
   source->pos += 4;
-  memcpy(dest->vr,&buff[4],2);
+  memcpy(dest->vr, &buff[4], 2);
   dest->length=((byte4*)buff)[2];
+  printf("%c%c %d ***\n",dest->vr[0],dest->vr[1],((int*)buff)[2]);
  }
 
  if(*SYSLENDIAN!=mode[1])
-  endianswap((byte1*)&dest->length,isshortvr(dest->vr) ? 2 : 4);
+  endianswap((byte1*)&dest->length, isshortvr(dest->vr) ? 2 : 4);
 
  return 0;
 }
 
-int geteldata(dcmel* dest, byte1* source, unsigned int bytesleft, int* mode)
+/***
+ return 0: buffer copied to data OR length = 0xFFFFFFFF and no copy
+ return 1: length != 0xFFFFFFFF and end of buffer encountered
+***/
+int geteldata(dcmel *dest, dcmbuff *source)
 {
+ if(dest->length != 0xFFFFFFFF)
+ {
+  dest->data = (byte1*)malloc(dest->length);
+  if(dest->length > source->len - source->pos)
+   return 1;
+  else
+  {
+   memcpy(dest->data, &source->raw[source->pos], dest->length);
+   source->pos += dest->length;
+  }
+ }
+ else
+  dest->data = malloc(0);
+ 
  return 0;
 }
 
@@ -248,15 +282,15 @@ int flagcaveats(void* flagchart)
  if(mjhargsc(flagchart,0))
  {
   printf("-h, --help: this\n");
-  printf("-v --version: version info\n");
-  printf("-f --file: file to search\n");
+  printf("-v, --version: version info\n");
+  printf("-f, --file: file to search\n");
   printf("-t, --tag: specify tag(s) to search for\n");
   printf("-s, --start: starting position in hex\n");
   exit(1);
  }
  else if(mjhargsc(flagchart,1))
  {
-  printf("Built on __DATE__\n");
+  printf("Built on %s\n",__DATE__);
   exit(1);
  }
  else if(mjhargsv(flagchart,2)==NULL)
@@ -287,15 +321,24 @@ int run(int argc,char** argv)
 
  FILE* dicom = fopen(mjhargsv(flagchart,2),"r");
  dcmbuff* zero;
- initdicom(&zero,dicom);
+ int initcode = initdicom(&zero,dicom);
 
- dcmel this;
+ dcmel el[2];
  int mode[] = {1,1}; 
  
- getelmeta(&this,zero,mode);
+ int i,j;
 
- printf("%04x %04x %c%c %d\n",this.tag[0],this.tag[1],this.vr[0],this.vr[1],this.length);
- printf("%x %x %x %d\n",this.buffnum,zero->pos,ftell(dicom),*SYSLENDIAN);
+ for(i=0;i<2;i++)
+ {
+  getelmeta(&el[i],zero,mode);
+  geteldata(&el[i],zero);
+
+  printf("%04x %04x %c%c %d\n",el[i].tag[0],el[i].tag[1],el[i].vr[0],el[i].vr[1],el[i].length);
+  printf("%x %x %x %d\n",el[i].buffnum,zero->pos,ftell(dicom),initcode);
+
+  for(j=0;j<el[i].length;j++) printf("%02x ",el[i].data[j]);
+  printf("\n***\n");
+ }
 
  fclose(dicom);
  return 0;
