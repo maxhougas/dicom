@@ -13,6 +13,9 @@
 #define BO1 0x0000FF00
 #define BO2 0x00FF0000
 #define BO3 0xFF000000
+#define NSQS 1324
+#define PSQS sqs
+#define LSQS 18
 #define byte(n) (0xFF<<n)
 /*
  300a00b2 => 0a30b200
@@ -35,6 +38,18 @@
  typedef unsigned short byte2;
  typedef unsigned int byte4;
 #endif
+
+typedef enum
+{
+ e_big,
+ e_little
+} m_endian;
+
+typedef enum
+{
+ v_implicit,
+ v_explicit
+} m_vr;
 
 const unsigned int DCMBUFFLEN = 0x40000000;
 
@@ -127,6 +142,43 @@ int isnovr(byte2 *tag)
  int i;
  for(i=0;i<NNOVRS && !(tag[0]==(NOVRS[i]&0xFFFF0000)>>16 && tag[1]==NOVRS[i]&0x0000FFFF);i++);
  return i<NNOVRS;
+}
+
+int issq(byte4 tag)
+{
+ static unsigned int *sqsl = NULL;
+ static unsigned int *sqsh = NULL;
+ if(sqs == NULL)
+ {
+  sqsl = malloc(sizeof(int)*NSQS);
+  sqsh = malloc(sizeof(int)*NSQS);
+  char buff[LSQS+1];
+  char *end;
+  FILE *fsqs = fopen(PSQS,"r");
+  unsigned int i;
+
+  fgets(buff,LSQS,fsqs);
+  for(i=0, i<NSQS && !feof(fsqs); i++);
+  {
+   sqsl[i] = (unsigned int)strtoul(buff, &end, 16);
+   sqsh[i] = (unsigned int)strtoul(&buff[9], &end, 16);
+   if(sqsl[i] == 0 || sqsh[i] == 0) return -1;
+   fgets(buff,LSQS,fsqs);
+  }
+
+  fclose(fsqs);
+ }
+
+ int low = 0, high = NSQS-1, mid;
+ do                                                                                                                       
+ {
+  mid = (high - low)/2
+  if(tag >= sqsl[mid] && tag <= sqsh[mid]) return 1;
+  if(tag > sqsl[mid]) low = mid;
+  else high = mid;
+ } while(low <= high);
+ 
+ return 0;
 }
 
 /***
