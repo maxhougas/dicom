@@ -27,9 +27,9 @@
 #define ptrchg(p,t,n) (((t*)(p))[n])
 
 /***
- hope char is 1 byte.
+ use stdint if available
 ***/
-#if INCLUDESTDINT == 1
+#ifdef _STDINT_H
  typedef uint8_t byte1;
  typedef uint16_t byte2;
  typedef uint32_t byte4;
@@ -62,10 +62,10 @@ const unsigned int DCMBUFFLEN = 0x40000000;
 const unsigned int ENDIAN1 = 1;
 const byte1 *SYSLENDIAN = (byte1*)&ENDIAN1;
 
-/***
- a buffer to pull file data into
- maintains basic metadata
-***/
+/*
+ moved to dcmsmartbuff.c
+ not ready to finalize yet
+*/
 typedef struct
 {
  unsigned int num;

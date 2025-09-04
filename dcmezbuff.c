@@ -13,10 +13,20 @@
  dcmbuff_loaddicom
 */
 
+#ifndef _STDIO_H
 #include <stdio.h>
-#include <stdlib.h>
+#endif
 
+#ifndef _STDLIB_H
+#include <stdlib.h>
+#endif
+
+/*
+ this should NEVER be less than DICOMHEADERL + 4
+*/
 #define dcmezbuff_DICOMSIZEMAX (0x01 << 30)
+#define dcmezbuff_DICOMHEADERL 128
+#define dcmezbuff_DICOMFOURCC "DICM"
 
 typedef struct
 {
@@ -31,13 +41,21 @@ void dcmbuff_del(dcmbuff *todel)
  free(todel);
 }
 
+/*
+ = 0: success
+ = 1: null parameter(s)
+ = 2: insufficient data
+*/
 int dcmbuff_get(char **current, dcmbuff *buff, int numchars)
 {
- if(buff == NULL || buff->data == NULL) return 1;
- if(p + numchars >= buff->l || numlchars < 0) return 2;
+ if(*current == NULL || buff == NULL || buff->data == NULL) return 1;
 
- *current = buff->data[buff->p];
- p += numchars;
+ int *p = &buff->p;
+ int *l = &buff->l;
+ if(*l-*p < numchars || numchars < 0) return 2;
+
+ *current = &buff->data[*p];
+ *p += numchars;
 
  return 0;
 }
@@ -60,11 +78,11 @@ int dcmezbuff_filetoobig(FILE *dicom)
  =  3: failed to determine file size (should never happen)
  =  4: failed to allocate memory
  =  5: unspecified file read error
+ =  6: fourcc check failed
 */
 int dcmbuff_loaddicom(dcmbuff **buff, FILE *dicom)
 {
  if(buff == NULL || dicom == NULL) return 1;
-
  if(dcmezbuff_filetoobig(dicom)) return 2;
 
  long int size = ftell(dicom);
@@ -77,10 +95,18 @@ int dcmbuff_loaddicom(dcmbuff **buff, FILE *dicom)
  if(data == NULL || *buff == NULL) return 4;
 
  buff->data = data;
- buff->p = 0;
 
  int nread = fread(data, 1, size, dicom);
  if(ferror(dicom)) return 5;
+
+ buff->p = dcmezbuff_DICOMHEADERL;
+ char* tocheck;
+ if
+ (
+  nread < dcmezbuff+DICOMHEADERL ||
+  dcmbuff_get(&tocheck, *buff, strlen(dcmezbuff_DICOMFOURCC)) ||
+  strncmp(tocheck, dcmezbuff_DICOMFOURCC, strlen(dcmezbuff_DICOMFOURCC))
+ ) return 6;
 
  buff->l = nread;
 
