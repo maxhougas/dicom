@@ -7,7 +7,7 @@ curl -s https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter
 sed -z 's:\xe2\x80\x8b::g; s:</a>\n *</p>:</a>null</p>\n:g; s:, :!:g; s:,::g; s:!:, :g' part6table.htm |\
  grep -Po '</tr>$|(?<=\()[0-9A-Zx]{8}(?=\))|(?<=>)[0-9A-Za-z ,]*?(?=<)' |\
  sed -z 's:\n:!:g; s:!</tr>!:\n:g' > tagtable
-grep SQ tagtabletest | grep -o '[A-F0-9x]\{8\}' | sed 's:[A-F0-9x]\{8\}:&!&:g; s:^50xx:5000:; s:!50xx:!50FF:' > sqs
+grep SQ tagtable | grep -o '[A-F0-9x]\{8\}' | sed 's:[A-F0-9x]\{8\}:&!&:g; s:^50xx:5000:; s:!50xx:!50FF:' > sqs
 
 #curl -s https://dicom.nema.org/medical/dicom/current/output/html/part06.html > part06.html
 #head -n 147423 part06.html | tail -n +953 > tagtable.html
