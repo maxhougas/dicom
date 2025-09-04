@@ -1,5 +1,5 @@
 const int ENDIANINT = 1;
-const char *ISLENDIAN = &ENDIANINT;
+const char *SYSLENDIAN = &ENDIANINT;
 
 int endianswap(char* toswap, int size)
 {
