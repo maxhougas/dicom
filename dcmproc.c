@@ -14,7 +14,7 @@
 #define BO2 0x00FF0000
 #define BO3 0xFF000000
 #define NSQS 1324
-#define PSQS sqs
+#define PSQS "sqs"
 #define LSQS 18
 #define byte(n) (0xFF<<n)
 /*
@@ -148,7 +148,7 @@ int issq(byte4 tag)
 {
  static unsigned int *sqsl = NULL;
  static unsigned int *sqsh = NULL;
- if(sqs == NULL)
+ if(sqsl == NULL || sqsh == NULL)
  {
   sqsl = malloc(sizeof(int)*NSQS);
   sqsh = malloc(sizeof(int)*NSQS);
@@ -158,7 +158,7 @@ int issq(byte4 tag)
   unsigned int i;
 
   fgets(buff,LSQS,fsqs);
-  for(i=0, i<NSQS && !feof(fsqs); i++);
+  for(i=0; i<NSQS && !feof(fsqs); i++);
   {
    sqsl[i] = (unsigned int)strtoul(buff, &end, 16);
    sqsh[i] = (unsigned int)strtoul(&buff[9], &end, 16);
@@ -172,7 +172,7 @@ int issq(byte4 tag)
  int low = 0, high = NSQS-1, mid;
  do                                                                                                                       
  {
-  mid = (high - low)/2
+  mid = (high - low)/2;
   if(tag >= sqsl[mid] && tag <= sqsh[mid]) return 1;
   if(tag > sqsl[mid]) low = mid;
   else high = mid;
