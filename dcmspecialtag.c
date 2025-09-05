@@ -6,7 +6,7 @@
  From DICOM standard part 5 section 7.1.2
  these vrs imply a 2 byte length length with explicit vrs
 */
-int specialtag_isshortvr(char* vr)
+int dcmspecialtag_isshortvr(char* vr)
 {
  const char* VRSHORTS[] = {"AE","AS","AT","CS","DA","DS","DT","FL","FD","IS","LO","LT","PN","SH","SL","SS","ST","TM","UI","UL","US"};
  const int NVRSHORT = 21;
@@ -20,9 +20,14 @@ int specialtag_isshortvr(char* vr)
  these two tags end elements of undefined length (0xFFFFFFFF)
  {item delimitation group, item delimitation element, sequence delimitation group, sequence delimitation element}
 */
-int specialtag_isdelimitation(int *tag)
-const short NUMDELIMITATION = 2;
-const short DELIMITATION[] = {0xFFFE,0xE00D,0xFFFE,0xE0DD};
+int dcmspecialtag_isdelimitation(int tag)
+{
+ const int NDELIMITATION = 2;
+ const int DELIMITATION[] = {0xFFFEE00D,0xFFFEE0DD};
+ int i;
+ for(i=0; i < NDELIMITATION && tag != DELIMITATION[i]; i++);
+ return i < NDELIMITATION;
+}
 
 /*
  From DICOM standard part 5 section 7.5
@@ -31,19 +36,19 @@ const short DELIMITATION[] = {0xFFFE,0xE00D,0xFFFE,0xE0DD};
  FFFE E00D = Item Delimitation Item
  FFFE E0DD = Sequence Delimitation Item
 */
-int isnovr(byte2 *tag)
+int dcmspecialtag_isnovr(int tag)
 {
  const int NNOVRS = 3;
- const int NOVRS[] = {0xFFFEE00D,0xFFFEE0DD,0xFFFEE000};
+ const int NOVRS[] = {0xFFFEE000,0xFFFEE00D,0xFFFEE0DD};
  int i;
- for(i=0;i<NNOVRS && !(tag[0]==(NOVRS[i]&0xFFFF0000)>>16 && tag[1]==NOVRS[i]&0x0000FFFF);i++);
- return i<NNOVRS;
+ for(i=0; i < NNOVRS && tag != NOVRS[i]; i++);
+ return i < NNOVRS;
 }
 
-int issq(byte4 tag)
+int dcmspecialtag_getsqsfromfile(char *fname)
 {
- static unsigned int *sqsl = NULL;
- static unsigned int *sqsh = NULL;
+ static int *sqsl = NULL;
+ static int *sqsh = NULL;
  if(sqsl == NULL || sqsh == NULL)
  {
   sqsl = malloc(sizeof(int)*NSQS);
@@ -64,6 +69,10 @@ int issq(byte4 tag)
 
   fclose(fsqs);
  }
+}
+
+int dcmspecialtag_issq(int tag)
+{
 
  int low = 0, high = NSQS-1, mid;
  do                                                                                                                       
