@@ -13,6 +13,7 @@ DICOM parser in C
 - [ ] Add single-pass functionality for tag-parsing
 - [ ] Add second-pass functionality for tree node hanging
 - [ ] Add functinality to dump to ... json or something
+- [ ] Decide whether to proceed with byte1 byte2 byte4 or use char short int
 
 ## Table of Contents
 - [Todo](#todo)
