@@ -2,4 +2,4 @@ actualdicoms/*
 dcmproc
 source/sqtags.c
 testingstuff/*
-tmp/part6table.htm
+tmp/*
