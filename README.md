@@ -36,7 +36,7 @@ DICOM parser in C
 [top](#top) [toc](#table-of-contents)
 
 ### Linux
-- The make file assumes you have access to BASH--shell expansion is used excessively
+- Makefile assumes you have access to BASH--shell expansion is used excessively
 
 [top](#top) [toc](#table-of-contents)
 
