@@ -18,11 +18,11 @@ tmp/part6table-win.htm: tmp
 
 source/sqtags.c: tmp/part6table.htm
 	echo 'stripping a lot of stuff akshewally'
-	sed -z 's:\n *:!!:g; s:</tr>:</tr>\n:g' part6table.htm |\
+	sed -z 's:\n *:!!:g; s:</tr>:</tr>\n:g' tmp/part6table.htm |\
 	grep '<tr.*SQ.*</tr>' |\
-	sed 's:).*:,:; s:.*(:0x:; s:,::; 1s:^:const int SQTAGS[] =\n{\n:; $$s:,:\n}:;' |\
+	sed 's:).*:,:; s:.*(:0x:; s:,::; 1s:^:const int SQTAGS[] =\n{\n:' |\
 	while read line; do bash -c "echo `echo $$line | sed 's:xx:{{0..9},{A..F}}{{0..9},{A..F}}:'`"; done < /dev/stdin |\
-	sed 's:^0: 0:; s:, :,\n :g; $$s:$$:;:' > source/sqtags.c
+	sed 's:^0: 0:; s:, :,\n :g; $$s:,$$:\n};:' > source/sqtags.c
 
 tmp:
 	mkdir tmp
