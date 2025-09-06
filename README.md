@@ -23,14 +23,25 @@ DICOM parser in C
 - [Building](#building)
 
 ## Usage
+- Example DICOMs can be found at [3dicomviewer](https://3dicomviewer.com/dicom-library)
+
+[top](#top) [toc](#table-of-contents)
 
 ## Description
 
+[top](#top) [toc](#table-of-contents)
+
 ## Building
+
+[top](#top) [toc](#table-of-contents)
 
 ### Linux
 - The make file assumes you have access to BASH--shell expansion is used excessively
 
+[top](#top) [toc](#table-of-contents)
+
 ### Windows
 - Currently Makefile assumes access to GCC.
 - The code should be platform independent, but you'll need to generate source/sqtags.c on your own.
+
+[top](#top) [toc](#table-of-contents)
