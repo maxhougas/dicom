@@ -1,7 +1,7 @@
-const int ENDIANINT = 1;
-const char *ISLENDIAN = &ENDIANINT;
+const int dcmendian_ENDIANINT = 1;
+const char *dcmendian_SYSISLITTLE = &dcmendian_ENDIANINT;
 
-int endianswap(char* toswap, int size)
+int dcmendian_swap(char* toswap, int size)
 {
  if(toswap == NULL || size < 0) return 1;
 

@@ -1,4 +1,5 @@
+actualdicoms/*
 dcmproc
-part6table.htm
-tagtable
-sqs
+source/sqtags.c
+testingstuff/*
+tmp/*
