@@ -32,5 +32,5 @@ DICOM parser in C
 - The make file assumes you have access to BASH--shell expansion is used excessively
 
 ### Windows
+- Currently Makefile assumes access to GCC.
 - The code should be platform independent, but you'll need to generate source/sqtags.c on your own.
-
