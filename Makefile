@@ -1,4 +1,4 @@
-all: dcmproc 
+all: dcmproc source/sqtags.c
 
 dcmproc: dcmproc.c hougasargs.c
 	echo 'Compiling dcmproc'
