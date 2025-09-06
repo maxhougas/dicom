@@ -20,7 +20,17 @@ DICOM parser in C
 - [Table of Contents](#top)
 - [Usage](#usage)
 - [Description](#description)
+- [Building](#building)
 
 ## Usage
 
 ## Description
+
+## Building
+
+### Linux
+- The make file assumes you have access to BASH--shell expansion is used excessively
+
+### Windows
+- The code should be platform independent, but you'll need to generate source/sqtags.c on your own.
+
