@@ -49,13 +49,17 @@ int dcmspecialtag_getsqsfromfile(char *fname)
 {
  static int *sqsl = NULL;
  static int *sqsh = NULL;
- if(sqsl == NULL || sqsh == NULL)
+ static int *sqs = NULL;
+
+ if(sqs == NULL)
  {
   sqsl = malloc(sizeof(int)*NSQS);
   sqsh = malloc(sizeof(int)*NSQS);
   char buff[LSQS+1];
   char *end;
   FILE *fsqs = fopen(PSQS,"r");
+  
+
   unsigned int i;
 
   fgets(buff,LSQS,fsqs);
