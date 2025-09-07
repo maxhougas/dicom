@@ -43,15 +43,6 @@ typedef enum
 
 const unsigned int DCMBUFFLEN = 0x40000000;
 
-/***
- assuming byte 0 is on the left
- lendain 1 = 0x01000000
- bendian 1 = 0x00000001
- if(*SYSLENDIAN) little endian stuff; else big endian stuff; 
-***/
-const unsigned int ENDIAN1 = 1;
-const byte1 *SYSLENDIAN = (byte1*)&ENDIAN1;
-
 /*
  moved to dcmsmartbuff.c
  not ready to finalize yet

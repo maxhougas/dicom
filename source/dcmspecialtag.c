@@ -2,6 +2,8 @@
  Provides functions for checking special dicom elements
 */
 
+#include"sqtags.c"
+
 /*
  From DICOM standard part 5 section 7.1.2
  these vrs imply a 2 byte length length with explicit vrs
@@ -9,7 +11,8 @@
 int dcmspecialtag_isshortvr(char* vr)
 {
  const char* VRSHORTS[] = {"AE","AS","AT","CS","DA","DS","DT","FL","FD","IS","LO","LT","PN","SH","SL","SS","ST","TM","UI","UL","US"};
- const int NVRSHORT = 21;
+ const int NNVRSHORT = 21;
+ cont int NVSHORT = (sizeof(VRSHORTS)/sizeof(char*));
  int i;
  for(i=0;i<NVRSHORT && strncmp(VRSHORTS[i],vr,2);i++);
  return i<NVRSHORT;
@@ -24,6 +27,7 @@ int dcmspecialtag_isdelimitation(int tag)
 {
  const int NDELIMITATION = 2;
  const int DELIMITATION[] = {0xFFFEE00D,0xFFFEE0DD};
+ const int NDELIMITATION = (sizeof(DELIMITATION)/sizeof(int));
  int i;
  for(i=0; i < NDELIMITATION && tag != DELIMITATION[i]; i++);
  return i < NDELIMITATION;
@@ -38,8 +42,9 @@ int dcmspecialtag_isdelimitation(int tag)
 */
 int dcmspecialtag_isnovr(int tag)
 {
- const int NNOVRS = 3;
+ const int NNNOVRS = 3;
  const int NOVRS[] = {0xFFFEE000,0xFFFEE00D,0xFFFEE0DD};
+ const int NOVRS = (sizeof(NOVRS)/sizeof(int));
  int i;
  for(i=0; i < NNOVRS && tag != NOVRS[i]; i++);
  return i < NNOVRS;
@@ -75,9 +80,11 @@ int dcmspecialtag_getsqsfromfile(char *fname)
  }
 }
 
+
+
 int dcmspecialtag_issq(int tag)
 {
-
+ int NSQS = sizeof(SQTAGS)/SIZEOF(int)
  int low = 0, high = NSQS-1, mid;
  do                                                                                                                       
  {
