@@ -1,5 +1,5 @@
 const int dcmendian_ENDIANINT = 1;
-const char *dcmendian_SYSISLITTLE = &dcmendian_ENDIANINT;
+const char *dcmendian_SYSISLITTLE = (char*)&dcmendian_ENDIANINT;
 
 int dcmendian_swap(char* toswap, int size)
 {

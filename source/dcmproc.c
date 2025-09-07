@@ -3,6 +3,8 @@
 #include <string.h>
 
 #include "hougasargs.c"
+#include "dcmendian.c"
+#include "dcmtypes.c"
 
 #define INCLUDESTDINT 0
 #if INCLUDESTDINT == 1
@@ -26,18 +28,6 @@
 #define mjhgpload(data) ((char*)&((long*)data)[2])
 #define ptrchg(p,t,n) (((t*)(p))[n])
 
-/***
- use stdint if available
-***/
-#ifdef _STDINT_H
- typedef uint8_t byte1;
- typedef uint16_t byte2;
- typedef uint32_t byte4;
-#else
- typedef unsigned char byte1;
- typedef unsigned short byte2;
- typedef unsigned int byte4;
-#endif
 
 typedef enum
 {
@@ -274,7 +264,7 @@ int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
 
  *(byte4*)dest->tag=*(byte4*)buff;
 
- if(*SYSLENDIAN!=mode[1])
+ if(*dcmendian_SYSISLITTLE != mode[1])
  {
   dest->tag[0] = dest->tag[0]&BO0<<8 + dest->tag[0]&BO1>>8;
   dest->tag[1] = dest->tag[1]&BO0<<8 + dest->tag[1]&BO1>>8;
@@ -300,7 +290,7 @@ int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
   printf("%c%c %d ***\n",dest->vr[0],dest->vr[1],((int*)buff)[2]);
  }
 
- if(*SYSLENDIAN!=mode[1])
+ if(*dcmendian_SYSISLITTLE != mode[1])
   endianswap((byte1*)&dest->length, isshortvr(dest->vr) ? 2 : 4);
 
  return 0;

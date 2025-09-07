@@ -1,6 +1,6 @@
 all: dcmproc source/sqtags.c
 
-dcmproc: dcmproc.c hougasargs.c
+dcmproc: source/dcmproc.c source/hougasargs.c
 	echo 'Compiling dcmproc'
 	gcc -ansi -o dcmproc source/dcmproc.c
 
