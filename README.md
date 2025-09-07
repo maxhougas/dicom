@@ -8,6 +8,10 @@ DICOM parser in C
 - [x] Create develop branch
 - [ ] Update README
 - [ ] Break subfunctionality into separate files
+  - [ ] dcmbuffer
+  - [x] dcmendian
+  - [x] dcmspecialtag
+  - [x] dcmtypes
 - [x] Pull pulltable.sh functionality into Makefile
 - [ ] Finish issq functionality
 - [ ] Add single-pass functionality for tag-parsing

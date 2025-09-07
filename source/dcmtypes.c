@@ -13,3 +13,14 @@
  typedef unsigned int byte4;
 #endif
 
+typedef enum
+{
+ e_big,
+ e_little
+} m_endian;
+
+typedef enum
+{
+ v_implicit,
+ v_explicit
+} m_vr;
