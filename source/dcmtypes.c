@@ -1,3 +1,5 @@
+#define _DCMTYPES 1
+
 /***
  use stdint if available
 ***/

@@ -3,8 +3,9 @@
 #include <string.h>
 
 #include "hougasargs.c"
-#include "dcmendian.c"
 #include "dcmtypes.c"
+#include "dcmendian.c"
+#include "dcmspecialtag.c"
 
 #define INCLUDESTDINT 0
 #if INCLUDESTDINT == 1
@@ -90,27 +91,6 @@ int dcmeldel(dcmel *element)
  free(element);
  return 0;
 }
-
-/***
- From DICOM standard part 5 section 7.1.2
- these vrs imply a 2 byte length length with explicit vrs
-***/
-int isshortvr(char* vr)
-{
- const char* VRSHORTS[] = {"AE","AS","AT","CS","DA","DS","DT","FL","FD","IS","LO","LT","PN","SH","SL","SS","ST","TM","UI","UL","US"};
- const unsigned int NVRSHORT = 21;
- int i;
- for(i=0;i<NVRSHORT && strncmp(VRSHORTS[i],vr,2);i++);
- return i<NVRSHORT;
-}
-
-/***
- From DICOM standard part 5 section 7.5
- these two tags end elements of undefined length (0xFFFFFFFF)
- {item delimitation group, item delimitation element, sequence delimitation group, sequence delimitation element}
-***/
-const short NUMDELIMITATION = 2;
-const short DELIMITATION[] = {0xFFFE,0xE00D,0xFFFE,0xE0DD};
 
 /***
  From DICOM standard part 5 section 7.5
@@ -263,7 +243,7 @@ int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
 
  if(isnovr(dest->tag) || !mode[0])
   dest->length = ((byte4*)buff)[1];
- else if(isshortvr(&buff[4]))
+ else if(dcmspecialtag_isshortvr(&buff[4]))
  {
   memcpy(dest->vr,&buff[4],2);
   dest->length=((byte2*)buff)[3];
@@ -278,11 +258,10 @@ int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
   source->pos += 4;
   memcpy(dest->vr, &buff[4], 2);
   dest->length=((byte4*)buff)[2];
-  printf("%c%c %d ***\n",dest->vr[0],dest->vr[1],((int*)buff)[2]);
  }
 
  if(*dcmendian_SYSISLITTLE != mode[1])
-  endianswap((byte1*)&dest->length, isshortvr(dest->vr) ? 2 : 4);
+  endianswap((byte1*)&dest->length, dcmspecialtag_isshortvr(dest->vr) ? 2 : 4);
 
  return 0;
 }
@@ -369,7 +348,8 @@ int run(int argc,char** argv)
   printf("%04x %04x %c%c %d\n",el[i].tag[0],el[i].tag[1],el[i].vr[0],el[i].vr[1],el[i].length);
   printf("%x %x %x %d\n",el[i].buffnum,zero->pos,ftell(dicom),initcode);
 
-  for(j=0;j<el[i].length;j++) printf("%02x ",el[i].data[j]);
+  for(j=0;j<el[i].length;j++)
+   printf("%02x ",el[i].data[j]);
   printf("\n***\n");
  }
 
