@@ -36,9 +36,9 @@
 
 typedef struct
 {
- byte1 *data;
- int p;
  int l;
+ int p;
+ byte1 *data;
 } dcmbuff;
 
 void dcmbuff_del(dcmbuff *todel)

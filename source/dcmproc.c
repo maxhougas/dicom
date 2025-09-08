@@ -8,47 +8,19 @@
 #endif
 
 #include "hougasargs.c"
-#include "dcmtypes.c"
+#include "dcmelement.c"
 #include "dcmendian.c"
 #include "dcmezbuff.c"
 #include "dcmspecialtag.c"
+#include "dcmtypes.c"
 
 #define mjhgtag(data) (((long*)data)[0])
 #define mjhgend(data) (((long*)data)[1])
 #define mjhgpload(data) ((char*)&((long*)data)[2])
 #define ptrchg(p,t,n) (((t*)(p))[n])
 
-/*
- bound [start position of element in file, end position of element in file]
- tag [group, element] Data Element Tag see part 5 section 7.1.1
- vr Value Representation see part 5 section 7.1.1
- length Value Length see part 5 section 7.1.1
- data Value Field see part 5 section 7.1.1
- datastop should be equal to length unless length is 0xFFFFFFFF
+const int FILEMETATS[] = {v_explicit,e_little};
 
- buffnum pos and datastop are depricated asof 20250908
-*/
-typedef struct
-{
- unsigned long long buffnum; /* depricated */
- unsigned long long pos; /* depricated */
- byte4 tag;
- byte1 vr[2];
- byte4 length;
- byte1* rawmeta;
- byte1* data;
- unsigned long long datastop; /* depricated */
-} dcmel;
-
-/*
- free(&dcmel) is bad
-*/
-int dcmeldel(dcmel *element)
-{
- free(element->data);
- free(element);
- return 0;
-}
 
 /*
  From dicom standard 5.7.1
@@ -72,9 +44,7 @@ int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
  dcmendian_handletag(&dest->tag, mode[1]);
 
  if(dcmspecialtag_isnovr(dest->tag) || mode[0] == v_implicit)
- {
   dest->length = ((byte4*)buff)[1];
- }
  else if(dcmspecialtag_isshortvr(&buff[4]))
  {
   dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
@@ -85,17 +55,10 @@ int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
   const int SECONDPULL = 4;
   if(dcmbuff_get(&tmp, source, SECONDPULL)) return 3;
 
-  byte1 *todel = buff;
-  buff = malloc(FIRSTPULL + SECONDPULL);
-  if(buff == NULL)
-  {
-   free(todel);
-   return 4;
-  }
+  void *newmem = realloc(buff, FIRSTPULL + SECONDPULL);
+  if(newmem == NULL) return 4;
 
-  memcpy(buff, todel,  FIRSTPULL);
-  memcpy(&buff[FIRSTPULL], tmp, SECONDPULL);
-  free(todel);
+  buff = (byte1*)newmem;
   dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
   dest->length=((byte4*)buff)[2];
  }
@@ -126,6 +89,14 @@ int geteldata(dcmel *dest, dcmbuff *source)
  memcpy(dest->data, tmp, dest->length);
 
  return 0;
+}
+
+int procfilemeta(dcmbuff *buff)
+{
+ dcmelarr *arr;
+ if(dcmelement_mkarr(&arr)) return 1;
+
+ dcmel
 }
 
 int flagcaveats(void* flagchart)
