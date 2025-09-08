@@ -56,12 +56,21 @@ int dcmbuff_get(byte1 **current, dcmbuff *buff, int numchars)
 {
  if(*current == NULL || buff == NULL || buff->data == NULL) return 1;
 
- int *p = &buff->p;
- int *l = &buff->l;
- if(*l-*p < numchars || numchars < 0) return 2;
+ if(buff->l-buff->p < numchars || numchars < 0) return 2;
 
- *current = &buff->data[*p];
- *p += numchars;
+ *current = &buff->data[buff->p];
+ buff->p += numchars;
+
+ return 0;
+}
+
+int dcmbuff_peek(byte1 **current, dcmbuff *buff, int numchars)
+{
+ if(*current == NULL || buff == NULL || buff->data == NULL) return 1;
+ 
+ if(buff->l-buff->p < numchars || numchars < 0) return 2;
+
+ *current = &buff->data[buff->p];
 
  return 0;
 }

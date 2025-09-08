@@ -40,7 +40,7 @@ typedef struct
 {
  unsigned int l;
  unsigned int p;
- dcmel *els;
+ dcmel **els;
 } dcmelarr;
 
 /*
@@ -54,7 +54,7 @@ int dcmelement_mkarr(dcmelarr **parr)
 
  *parr = malloc(sizeof(dcmelarr));
  dcmelarr *arr = *parr;
- dcmel *els = malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
+ dcmel **els = (dcmel**)malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
  if(arr == NULL || els == NULL) return 2;
 
  arr->els = els;
@@ -72,11 +72,13 @@ int dcmelement_addel(dcmelarr *arr, dcmel *el)
  {
   void *newmem = realloc(arr->els, sizeof(void*)*(arr->l + dcmelement_ARRTOADD));
   if(newmem == NULL) return 2;
-  
-  arr->els = (dcmel*)newmem;
+
+  arr->els = (dcmel**)newmem;
   arr->l += dcmelement_ARRTOADD;
-  arr->els[arr->p] = el;
-  arr->p++;
+ }
+  
+ arr->els[arr->p] = el;
+ arr->p++;
 
  return 0;
 }
