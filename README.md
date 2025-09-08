@@ -11,7 +11,6 @@ DICOM parser in C
 - [ ] Add second-pass functionality for tree node hanging
 - [ ] Add functinality to dump to ... json or something
 ### Code Organization
-- [x] Create develop branch
 - [ ] Break subfunctionality into separate files
   - [x] dcmbuffer(dcmezbuff only)
   - [ ] dcmsmartbuff
@@ -20,6 +19,7 @@ DICOM parser in C
   - [x] dcmtypes
 - [x] Pull pulltable.sh functionality into Makefile
 ### Meta stuff
+- [x] Create develop branch
 - [ ] Update README
 - [ ] Deal with types
   - [x] Decide whether to proceed with byte1 byte2 byte4 or use char short int (going with bytex)
