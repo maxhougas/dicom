@@ -4,6 +4,11 @@
 
 #define _DCMENDIAN 1
 
+#define BO0 0x000000FF
+#define BO1 0x0000FF00
+#define BO2 0x00FF0000
+#define BO3 0xFF000000
+#define byte(n) (0xFF<<n)
 #define dcmendian_4flip(a) ((((a)&0xFF000000)>>24) + (((a)&0xFF0000)>>8) + (((a)&0xFF00)<<8) + (((a)&0xFF)<<24))
 
 const int dcmendian_ENDIANINT = 1;
