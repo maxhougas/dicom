@@ -3,10 +3,18 @@
 #include <string.h>
 
 #include "hougasargs.c"
+#include "dcmtypes.c"
+#include "dcmendian.c"
+#include "dcmspecialtag.c"
 
 #define INCLUDESTDINT 0
 #if INCLUDESTDINT == 1
- #include <stdint.h>
+#include <stdint.h>
+#endif
+
+#define EXTDCMBUFF 1
+#if EXTDCMBUFF == 1
+#include "dcmezbuff.c"
 #endif
 
 #define BO0 0x000000FF
@@ -26,42 +34,9 @@
 #define mjhgpload(data) ((char*)&((long*)data)[2])
 #define ptrchg(p,t,n) (((t*)(p))[n])
 
-/***
- use stdint if available
-***/
-#ifdef _STDINT_H
- typedef uint8_t byte1;
- typedef uint16_t byte2;
- typedef uint32_t byte4;
-#else
- typedef unsigned char byte1;
- typedef unsigned short byte2;
- typedef unsigned int byte4;
-#endif
-
-typedef enum
-{
- e_big,
- e_little
-} m_endian;
-
-typedef enum
-{
- v_implicit,
- v_explicit
-} m_vr;
-
 const unsigned int DCMBUFFLEN = 0x40000000;
 
-/***
- assuming byte 0 is on the left
- lendain 1 = 0x01000000
- bendian 1 = 0x00000001
- if(*SYSLENDIAN) little endian stuff; else big endian stuff; 
-***/
-const unsigned int ENDIAN1 = 1;
-const byte1 *SYSLENDIAN = (byte1*)&ENDIAN1;
-
+#if EXTDCMBUFF == 0
 /*
  moved to dcmsmartbuff.c
  not ready to finalize yet
@@ -80,6 +55,7 @@ int dcmbuffdel(dcmbuff *buff)
  free(buff);
  return 0;
 }
+#endif
 
 /***
  bound [start position of element in file, end position of element in file]
@@ -93,7 +69,7 @@ typedef struct
 {
  unsigned long long buffnum;
  unsigned long long pos;
- byte2 tag[2];
+ byte4 tag;
  byte1 vr[2];
  unsigned int length;
  byte1* data;
@@ -110,91 +86,7 @@ int dcmeldel(dcmel *element)
  return 0;
 }
 
-/***
- From DICOM standard part 5 section 7.1.2
- these vrs imply a 2 byte length length with explicit vrs
-***/
-int isshortvr(char* vr)
-{
- const char* VRSHORTS[] = {"AE","AS","AT","CS","DA","DS","DT","FL","FD","IS","LO","LT","PN","SH","SL","SS","ST","TM","UI","UL","US"};
- const unsigned int NVRSHORT = 21;
- int i;
- for(i=0;i<NVRSHORT && strncmp(VRSHORTS[i],vr,2);i++);
- return i<NVRSHORT;
-}
-
-/***
- From DICOM standard part 5 section 7.5
- these two tags end elements of undefined length (0xFFFFFFFF)
- {item delimitation group, item delimitation element, sequence delimitation group, sequence delimitation element}
-***/
-const short NUMDELIMITATION = 2;
-const short DELIMITATION[] = {0xFFFE,0xE00D,0xFFFE,0xE0DD};
-
-/***
- From DICOM standard part 5 section 7.5
- these tags do not have vrs
-***/
-int isnovr(byte2 *tag)
-{
- const unsigned int NNOVRS = 3;
- const unsigned int NOVRS[] = {0xFFFEE00D,0xFFFEE0DD,0xFFFEE000};
- int i;
- for(i=0;i<NNOVRS && !(tag[0]==(NOVRS[i]&0xFFFF0000)>>16 && tag[1]==NOVRS[i]&0x0000FFFF);i++);
- return i<NNOVRS;
-}
-
-int issq(byte4 tag)
-{
- static unsigned int *sqsl = NULL;
- static unsigned int *sqsh = NULL;
- if(sqsl == NULL || sqsh == NULL)
- {
-  sqsl = malloc(sizeof(int)*NSQS);
-  sqsh = malloc(sizeof(int)*NSQS);
-  char buff[LSQS+1];
-  char *end;
-  FILE *fsqs = fopen(PSQS,"r");
-  unsigned int i;
-
-  fgets(buff,LSQS,fsqs);
-  for(i=0; i<NSQS && !feof(fsqs); i++);
-  {
-   sqsl[i] = (unsigned int)strtoul(buff, &end, 16);
-   sqsh[i] = (unsigned int)strtoul(&buff[9], &end, 16);
-   if(sqsl[i] == 0 || sqsh[i] == 0) return -1;
-   fgets(buff,LSQS,fsqs);
-  }
-
-  fclose(fsqs);
- }
-
- int low = 0, high = NSQS-1, mid;
- do                                                                                                                       
- {
-  mid = (high - low)/2;
-  if(tag >= sqsl[mid] && tag <= sqsh[mid]) return 1;
-  if(tag > sqsl[mid]) low = mid;
-  else high = mid;
- } while(low <= high);
- 
- return 0;
-}
-
-/***
- little endian <-> big endian
-***/
-int endianswap(byte1* toswap, unsigned int size)
-{
- int i;
- for(i=0;i<size/2;i++)
- {
-  toswap[i]^=toswap[size-1-i];
-  toswap[size-1-i]^=toswap[i];
-  toswap[i]^=toswap[size-1-i];
- }
-}
-
+#if EXTDCMBUFF == 0
 int firstbuff(dcmbuff **zero)
 {
  *zero=malloc(sizeof(dcmbuff));
@@ -251,7 +143,58 @@ int initdicom(dcmbuff** zero,FILE* dicom)
 
  return 0;
 }
+#endif
 
+#if EXTDCMBUFF == 1
+int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
+{
+ byte1 *tmp;
+ const int FIRSTPULL = 8;
+ int err;
+ if(err = dcmbuff_get(&tmp, source, FIRSTPULL)) return 1;
+
+ byte1 *buff = malloc(FIRSTPULL);
+ if(buff == NULL) return 2;
+
+ memcpy(buff,tmp,FIRSTPULL);
+ dest->tag = *(byte4*)buff;
+ dcmendian_handletag(&dest->tag, mode[1]);
+
+ if(dcmspecialtag_isnovr(dest->tag) || mode[0] == v_implicit)
+ {
+  dest->length = ((byte4*)buff)[1];
+ }
+ else if(dcmspecialtag_isshortvr(&buff[4]))
+ {
+  dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
+  dest->length = ((byte2*)buff)[3];
+ }
+ else /*explicit vr, not short*/
+ {
+  const int SECONDPULL = 4;
+  if(dcmbuff_get(&tmp, source, SECONDPULL)) return 3;
+
+  byte1 *todel = buff;
+  buff = malloc(FIRSTPULL + SECONDPULL);
+  if(buff == NULL)
+  {
+   free(todel);
+   return 4;
+  }
+
+  memcpy(buff, todel,  FIRSTPULL);
+  memcpy(&buff[FIRSTPULL], tmp, SECONDPULL);
+  free(todel);
+  dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
+  dest->length=((byte4*)buff)[2];
+ }
+
+ if(*dcmendian_SYSISLITTLE != mode[1])
+  dcmendian_4flip(dest->length);
+
+ return 0;
+}
+#elif EXTDCMBUFF == 0
 /***
  From DICOM standard part 5 section 7.1
  source must have 8 bytes
@@ -272,17 +215,13 @@ int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
  dest->pos = (source->num == dest->buffnum) ? (DCMBUFFLEN - extra + source->pos) : (source->pos - extra);
  source->pos += 8;
 
- *(byte4*)dest->tag=*(byte4*)buff;
+ dest->tag=*(byte4*)buff;
 
- if(*SYSLENDIAN!=mode[1])
- {
-  dest->tag[0] = dest->tag[0]&BO0<<8 + dest->tag[0]&BO1>>8;
-  dest->tag[1] = dest->tag[1]&BO0<<8 + dest->tag[1]&BO1>>8;
- }
+ dcmendian_handletag(&dest->tag, mode[1]);
 
- if(isnovr(dest->tag) || !mode[0])
+ if(dcmspecialtag_isnovr(dest->tag) || !mode[0])
   dest->length = ((byte4*)buff)[1];
- else if(isshortvr(&buff[4]))
+ else if(dcmspecialtag_isshortvr(&buff[4]))
  {
   memcpy(dest->vr,&buff[4],2);
   dest->length=((byte2*)buff)[3];
@@ -297,15 +236,29 @@ int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
   source->pos += 4;
   memcpy(dest->vr, &buff[4], 2);
   dest->length=((byte4*)buff)[2];
-  printf("%c%c %d ***\n",dest->vr[0],dest->vr[1],((int*)buff)[2]);
  }
 
- if(*SYSLENDIAN!=mode[1])
-  endianswap((byte1*)&dest->length, isshortvr(dest->vr) ? 2 : 4);
+ if(*dcmendian_SYSISLITTLE != mode[1])
+  dcmendian_swap((byte1*)&dest->length, dcmspecialtag_isshortvr(dest->vr) ? 2 : 4);
 
  return 0;
 }
+#endif
 
+#if EXTDCMBUFF == 1
+int geteldata(dcmel *dest, dcmbuff *source)
+{
+ byte1 *tmp;
+ if(dcmbuff_get(&tmp, source, dest->length)) return 1;
+
+ dest->data = malloc(dest->length);
+ if(dest->data == NULL) return 2;
+
+ memcpy(dest->data, tmp, dest->length);
+
+ return 0;
+}
+#elif EXTDCMBUFF == 0
 /***
  return 0: buffer copied to data OR length = 0xFFFFFFFF and no copy
  return 1: length != 0xFFFFFFFF and end of buffer encountered
@@ -328,6 +281,7 @@ int geteldata(dcmel *dest, dcmbuff *source)
  
  return 0;
 }
+#endif
 
 int flagcaveats(void* flagchart)
 {
@@ -363,6 +317,41 @@ int flagcaveats(void* flagchart)
  return 0;
 }
 
+#if EXTDCMBUFF == 1
+int run(int argc, char **argv)
+{
+ void* flagchart;
+ char* validflags[] = {"h","help","v","version","f","file","s","start","t","tag","--"};
+
+ mjhargsproc(&flagchart,validflags,argc,argv);
+ flagcaveats(flagchart);
+
+ FILE* dicom = fopen(mjhargsv(flagchart,2),"r");
+ dcmbuff *zero;
+
+ dcmbuff_loaddicom(&zero, dicom);
+
+ dcmel el[2];
+ int mode[] = {1,1};
+ int i,j;
+
+ for(i=0;i<2;i++)
+ {
+  getelmeta(&el[i],zero,mode);
+  geteldata(&el[i],zero);
+
+  printf("%08x %c%c %d\n",el[i].tag,el[i].vr[0],el[i].vr[1],el[i].length);
+/*  printf("%x %x\n",el[i].buffnum,ftell(dicom));
+*/
+  for(j=0;j<el[i].length;j++)
+   printf("%02x ",el[i].data[j]);
+  printf("\n***\n");
+ }
+
+ fclose(dicom);
+ return 0;
+}
+#elif EXTDCMBUFF == 0
 int run(int argc,char** argv)
 {
  void* flagchart;
@@ -385,16 +374,18 @@ int run(int argc,char** argv)
   getelmeta(&el[i],zero,mode);
   geteldata(&el[i],zero);
 
-  printf("%04x %04x %c%c %d\n",el[i].tag[0],el[i].tag[1],el[i].vr[0],el[i].vr[1],el[i].length);
+  printf("%08x %c%c %d\n",el[i].tag,el[i].vr[0],el[i].vr[1],el[i].length);
   printf("%x %x %x %d\n",el[i].buffnum,zero->pos,ftell(dicom),initcode);
 
-  for(j=0;j<el[i].length;j++) printf("%02x ",el[i].data[j]);
+  for(j=0;j<el[i].length;j++)
+   printf("%02x ",el[i].data[j]);
   printf("\n***\n");
  }
 
  fclose(dicom);
  return 0;
 }
+#endif
 
 int main(int argc, char** argv)
 {

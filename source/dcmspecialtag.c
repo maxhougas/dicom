@@ -2,16 +2,21 @@
  Provides functions for checking special dicom elements
 */
 
+#include "sqtags.c"
+#ifndef _DCMTYPES
+#include "dcmtypes.c"
+#endif
+
 /*
  From DICOM standard part 5 section 7.1.2
  these vrs imply a 2 byte length length with explicit vrs
 */
-int dcmspecialtag_isshortvr(char* vr)
+int dcmspecialtag_isshortvr(byte1 *vr)
 {
- const char* VRSHORTS[] = {"AE","AS","AT","CS","DA","DS","DT","FL","FD","IS","LO","LT","PN","SH","SL","SS","ST","TM","UI","UL","US"};
- const int NVRSHORT = 21;
+ const char *VRSHORTS[] = {"AE","AS","AT","CS","DA","DS","DT","FL","FD","IS","LO","LT","PN","SH","SL","SS","ST","TM","UI","UL","US"};
+ const int NVRSHORT = (sizeof(VRSHORTS)/sizeof(byte1*));
  int i;
- for(i=0;i<NVRSHORT && strncmp(VRSHORTS[i],vr,2);i++);
+ for(i=0;i<NVRSHORT && *(byte2*)vr != *((byte2**)VRSHORTS)[i]; i++);
  return i<NVRSHORT;
 }
 
@@ -20,10 +25,10 @@ int dcmspecialtag_isshortvr(char* vr)
  these two tags end elements of undefined length (0xFFFFFFFF)
  {item delimitation group, item delimitation element, sequence delimitation group, sequence delimitation element}
 */
-int dcmspecialtag_isdelimitation(int tag)
+int dcmspecialtag_isdelimitation(byte4 tag)
 {
- const int NDELIMITATION = 2;
- const int DELIMITATION[] = {0xFFFEE00D,0xFFFEE0DD};
+ const byte4 DELIMITATION[] = {0xFFFEE00D,0xFFFEE0DD};
+ const int NDELIMITATION = (sizeof(DELIMITATION)/sizeof(int));
  int i;
  for(i=0; i < NDELIMITATION && tag != DELIMITATION[i]; i++);
  return i < NDELIMITATION;
@@ -36,56 +41,25 @@ int dcmspecialtag_isdelimitation(int tag)
  FFFE E00D = Item Delimitation Item
  FFFE E0DD = Sequence Delimitation Item
 */
-int dcmspecialtag_isnovr(int tag)
+int dcmspecialtag_isnovr(byte4 tag)
 {
- const int NNOVRS = 3;
- const int NOVRS[] = {0xFFFEE000,0xFFFEE00D,0xFFFEE0DD};
+ const byte4 NOVRS[] = {0xFFFEE000,0xFFFEE00D,0xFFFEE0DD};
+ const int NNOVRS = (sizeof(NOVRS)/sizeof(int));
  int i;
  for(i=0; i < NNOVRS && tag != NOVRS[i]; i++);
  return i < NNOVRS;
 }
 
-int dcmspecialtag_getsqsfromfile(char *fname)
+int dcmspecialtag_issq(byte4 tag)
 {
- static int *sqsl = NULL;
- static int *sqsh = NULL;
- static int *sqs = NULL;
-
- if(sqs == NULL)
- {
-  sqsl = malloc(sizeof(int)*NSQS);
-  sqsh = malloc(sizeof(int)*NSQS);
-  char buff[LSQS+1];
-  char *end;
-  FILE *fsqs = fopen(PSQS,"r");
-  
-
-  unsigned int i;
-
-  fgets(buff,LSQS,fsqs);
-  for(i=0; i<NSQS && !feof(fsqs); i++);
-  {
-   sqsl[i] = (unsigned int)strtoul(buff, &end, 16);
-   sqsh[i] = (unsigned int)strtoul(&buff[9], &end, 16);
-   if(sqsl[i] == 0 || sqsh[i] == 0) return -1;
-   fgets(buff,LSQS,fsqs);
-  }
-
-  fclose(fsqs);
- }
-}
-
-int dcmspecialtag_issq(int tag)
-{
-
- int low = 0, high = NSQS-1, mid;
+ int low = 0, high = NSQTAGS-1, mid;
  do                                                                                                                       
  {
   mid = (high - low)/2;
-  if(tag >= sqsl[mid] && tag <= sqsh[mid]) return 1;
-  if(tag > sqsl[mid]) low = mid;
+  if(tag == SQTAGS[mid]) return 1;
+  if(tag > SQTAGS[mid]) low = mid;
   else high = mid;
- } while(low <= high);
+ } while(low < high);
  
  return 0;
 }
