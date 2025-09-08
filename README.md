@@ -4,9 +4,14 @@
 DICOM parser in C
 
 ## Todo
+### Basic functionality
 - [x] Create functionality to pull sqs from dicom.nema.org
+- [ ] Test issq functionality
+- [ ] Add single-pass functionality for tag-parsing
+- [ ] Add second-pass functionality for tree node hanging
+- [ ] Add functinality to dump to ... json or something
+### Code Organization
 - [x] Create develop branch
-- [ ] Update README
 - [ ] Break subfunctionality into separate files
   - [x] dcmbuffer(dcmezbuff only)
   - [ ] dcmsmartbuff
@@ -14,12 +19,11 @@ DICOM parser in C
   - [x] dcmspecialtag
   - [x] dcmtypes
 - [x] Pull pulltable.sh functionality into Makefile
-- [ ] Test issq functionality
-- [ ] Add single-pass functionality for tag-parsing
-- [ ] Add second-pass functionality for tree node hanging
-- [ ] Add functinality to dump to ... json or something
-- [x] Decide whether to proceed with byte1 byte2 byte4 or use char short int (going with bytex)
-- [ ] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
+### Meta stuff
+- [ ] Update README
+- [ ] Deal with types
+  - [x] Decide whether to proceed with byte1 byte2 byte4 or use char short int (going with bytex)
+  - [ ] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
 
 ## Table of Contents
 - [Todo](#todo)
