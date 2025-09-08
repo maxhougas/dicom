@@ -1,3 +1,14 @@
+/*
+ dcmelement.c
+
+ structures for containing parsed dicom data
+ dcmel is self explanitory
+ dcmelarr is an array of dcmel*
+ dcmelement_mkarr initializes a dcmarr
+ dcmelement_addel adds an element to the array, expanding if necessary
+ renaming may be in order here
+*/
+
 #ifndef _DCMTYPES
 #include "dcmtypes.c"
 #endif
@@ -50,12 +61,12 @@ typedef struct
 */
 int dcmelement_mkarr(dcmelarr **parr)
 {
- if(parr == NULL) return 1;
+ if(parr == NULL) {perror("1:dcmelement_mkarr"); return 1;}
 
  *parr = malloc(sizeof(dcmelarr));
  dcmelarr *arr = *parr;
  dcmel **els = (dcmel**)malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
- if(arr == NULL || els == NULL) return 2;
+ if(arr == NULL || els == NULL) {perror("2:dcmelement_mkarr"); return 2;}
 
  arr->els = els;
  arr->l = dcmelement_ARRDEFAULTL;
@@ -66,12 +77,12 @@ int dcmelement_mkarr(dcmelarr **parr)
 
 int dcmelement_addel(dcmelarr *arr, dcmel *el)
 {
- if(arr == NULL || el == NULL) return 1;
+ if(arr == NULL || el == NULL) {perror("1:dcmelement_addel"); return 1;}
 
  if(arr->p == arr->l)
  {
   void *newmem = realloc(arr->els, sizeof(void*)*(arr->l + dcmelement_ARRTOADD));
-  if(newmem == NULL) return 2;
+  if(newmem == NULL) {perror("2:dcmelement_addel"); return 2;}
 
   arr->els = (dcmel**)newmem;
   arr->l += dcmelement_ARRTOADD;

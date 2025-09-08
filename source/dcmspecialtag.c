@@ -1,4 +1,6 @@
 /*
+ dcmspecialtag.c
+
  Provides functions for checking special dicom elements
 */
 

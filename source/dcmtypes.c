@@ -1,3 +1,9 @@
+/*
+ dcmtypes.c
+
+ types that don't have any special functions associated directly with them
+*/
+
 #ifndef _STDLIB_H
 #include <stdlib.h>
 #endif
