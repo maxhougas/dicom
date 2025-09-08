@@ -8,16 +8,18 @@ DICOM parser in C
 - [x] Create develop branch
 - [ ] Update README
 - [ ] Break subfunctionality into separate files
-  - [ ] dcmbuffer
+  - [x] dcmbuffer(dcmezbuff only)
+  - [ ] dcmsmartbuff
   - [x] dcmendian
   - [x] dcmspecialtag
   - [x] dcmtypes
 - [x] Pull pulltable.sh functionality into Makefile
-- [ ] Finish issq functionality
+- [ ] Test issq functionality
 - [ ] Add single-pass functionality for tag-parsing
 - [ ] Add second-pass functionality for tree node hanging
 - [ ] Add functinality to dump to ... json or something
-- [ ] Decide whether to proceed with byte1 byte2 byte4 or use char short int
+- [x] Decide whether to proceed with byte1 byte2 byte4 or use char short int (going with bytex)
+- [ ] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
 
 ## Table of Contents
 - [Todo](#todo)
@@ -32,6 +34,7 @@ DICOM parser in C
 [top](#top) [toc](#table-of-contents)
 
 ## Description
+- This program assumes 8-bit bytes
 
 [top](#top) [toc](#table-of-contents)
 

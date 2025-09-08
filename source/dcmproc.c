@@ -9,7 +9,12 @@
 
 #define INCLUDESTDINT 0
 #if INCLUDESTDINT == 1
- #include <stdint.h>
+#include <stdint.h>
+#endif
+
+#define EXTDCMBUFF 1
+#if EXTDCMBUFF == 1
+#include "dcmezbuff.c"
 #endif
 
 #define BO0 0x000000FF
@@ -31,6 +36,7 @@
 
 const unsigned int DCMBUFFLEN = 0x40000000;
 
+#if EXTDCMBUFF == 0
 /*
  moved to dcmsmartbuff.c
  not ready to finalize yet
@@ -49,6 +55,7 @@ int dcmbuffdel(dcmbuff *buff)
  free(buff);
  return 0;
 }
+#endif
 
 /***
  bound [start position of element in file, end position of element in file]
@@ -79,6 +86,7 @@ int dcmeldel(dcmel *element)
  return 0;
 }
 
+#if EXTDCMBUFF == 0
 int firstbuff(dcmbuff **zero)
 {
  *zero=malloc(sizeof(dcmbuff));
@@ -135,7 +143,58 @@ int initdicom(dcmbuff** zero,FILE* dicom)
 
  return 0;
 }
+#endif
 
+#if EXTDCMBUFF == 1
+int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
+{
+ byte1 *tmp;
+ const int FIRSTPULL = 8;
+ int err;
+ if(err = dcmbuff_get(&tmp, source, FIRSTPULL)) return 1;
+
+ byte1 *buff = malloc(FIRSTPULL);
+ if(buff == NULL) return 2;
+
+ memcpy(buff,tmp,FIRSTPULL);
+ dest->tag = *(byte4*)buff;
+ dcmendian_handletag(&dest->tag, mode[1]);
+
+ if(dcmspecialtag_isnovr(dest->tag) || mode[0] == v_implicit)
+ {
+  dest->length = ((byte4*)buff)[1];
+ }
+ else if(dcmspecialtag_isshortvr(&buff[4]))
+ {
+  dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
+  dest->length = ((byte2*)buff)[3];
+ }
+ else /*explicit vr, not short*/
+ {
+  const int SECONDPULL = 4;
+  if(dcmbuff_get(&tmp, source, SECONDPULL)) return 3;
+
+  byte1 *todel = buff;
+  buff = malloc(FIRSTPULL + SECONDPULL);
+  if(buff == NULL)
+  {
+   free(todel);
+   return 4;
+  }
+
+  memcpy(buff, todel,  FIRSTPULL);
+  memcpy(&buff[FIRSTPULL], tmp, SECONDPULL);
+  free(todel);
+  dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
+  dest->length=((byte4*)buff)[2];
+ }
+
+ if(*dcmendian_SYSISLITTLE != mode[1])
+  dcmendian_4flip(dest->length);
+
+ return 0;
+}
+#elif EXTDCMBUFF == 0
 /***
  From DICOM standard part 5 section 7.1
  source must have 8 bytes
@@ -184,7 +243,22 @@ int getelmeta(dcmel *dest, dcmbuff *source, int *mode)
 
  return 0;
 }
+#endif
 
+#if EXTDCMBUFF == 1
+int geteldata(dcmel *dest, dcmbuff *source)
+{
+ byte1 *tmp;
+ if(dcmbuff_get(&tmp, source, dest->length)) return 1;
+
+ dest->data = malloc(dest->length);
+ if(dest->data == NULL) return 2;
+
+ memcpy(dest->data, tmp, dest->length);
+
+ return 0;
+}
+#elif EXTDCMBUFF == 0
 /***
  return 0: buffer copied to data OR length = 0xFFFFFFFF and no copy
  return 1: length != 0xFFFFFFFF and end of buffer encountered
@@ -207,6 +281,7 @@ int geteldata(dcmel *dest, dcmbuff *source)
  
  return 0;
 }
+#endif
 
 int flagcaveats(void* flagchart)
 {
@@ -242,6 +317,41 @@ int flagcaveats(void* flagchart)
  return 0;
 }
 
+#if EXTDCMBUFF == 1
+int run(int argc, char **argv)
+{
+ void* flagchart;
+ char* validflags[] = {"h","help","v","version","f","file","s","start","t","tag","--"};
+
+ mjhargsproc(&flagchart,validflags,argc,argv);
+ flagcaveats(flagchart);
+
+ FILE* dicom = fopen(mjhargsv(flagchart,2),"r");
+ dcmbuff *zero;
+
+ dcmbuff_loaddicom(&zero, dicom);
+
+ dcmel el[2];
+ int mode[] = {1,1};
+ int i,j;
+
+ for(i=0;i<2;i++)
+ {
+  getelmeta(&el[i],zero,mode);
+  geteldata(&el[i],zero);
+
+  printf("%08x %c%c %d\n",el[i].tag,el[i].vr[0],el[i].vr[1],el[i].length);
+/*  printf("%x %x\n",el[i].buffnum,ftell(dicom));
+*/
+  for(j=0;j<el[i].length;j++)
+   printf("%02x ",el[i].data[j]);
+  printf("\n***\n");
+ }
+
+ fclose(dicom);
+ return 0;
+}
+#elif EXTDCMBUFF == 0
 int run(int argc,char** argv)
 {
  void* flagchart;
@@ -275,6 +385,7 @@ int run(int argc,char** argv)
  fclose(dicom);
  return 0;
 }
+#endif
 
 int main(int argc, char** argv)
 {

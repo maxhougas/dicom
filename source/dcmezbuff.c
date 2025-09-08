@@ -21,6 +21,12 @@
 #include <stdlib.h>
 #endif
 
+#ifndef _DCMTYPES
+#include "dcmtypes.c"
+#endif
+
+#define _DCMBUFF 1
+#define _DCMEZBUFF 1
 /*
  this should NEVER be less than DICOMHEADERL + 4
 */
@@ -30,7 +36,7 @@
 
 typedef struct
 {
- char *data;
+ byte1 *data;
  int p;
  int l;
 } dcmbuff;
@@ -46,7 +52,7 @@ void dcmbuff_del(dcmbuff *todel)
  = 1: null parameter(s)
  = 2: insufficient data
 */
-int dcmbuff_get(char **current, dcmbuff *buff, int numchars)
+int dcmbuff_get(byte1 **current, dcmbuff *buff, int numchars)
 {
  if(*current == NULL || buff == NULL || buff->data == NULL) return 1;
 
@@ -65,7 +71,7 @@ int dcmezbuff_filetoobig(FILE *dicom)
  if(fseek(dicom, 0, SEEK_END)) return 1;
  long int size = ftell(dicom);
  if(size == -1L) return 2;
- if(size > dcmezbuff_DICOMSIZEMAX); return 3;
+ if(size > dcmezbuff_DICOMSIZEMAX) return 3;
 
  return 0;
 }
@@ -80,19 +86,21 @@ int dcmezbuff_filetoobig(FILE *dicom)
  =  5: unspecified file read error
  =  6: fourcc check failed
 */
-int dcmbuff_loaddicom(dcmbuff **buff, FILE *dicom)
+int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
 {
- if(buff == NULL || dicom == NULL) return 1;
- if(dcmezbuff_filetoobig(dicom)) return 2;
+ if(pbuff == NULL || dicom == NULL) return 1;
+ int err;
+ if(err = dcmezbuff_filetoobig(dicom)) return 2;
 
  long int size = ftell(dicom);
  if(size == -1L) return 3;
 
  rewind(dicom);
 
- char *data = (char*)malloc(size);
- *buff = (dcmbuff*)malloc(sizeof(dcmbuff));
- if(data == NULL || *buff == NULL) return 4;
+ byte1 *data = (byte1*)malloc(size);
+ *pbuff = (dcmbuff*)malloc(sizeof(dcmbuff));
+ dcmbuff *buff = *pbuff;
+ if(data == NULL || buff == NULL) return 4;
 
  buff->data = data;
 
@@ -100,15 +108,14 @@ int dcmbuff_loaddicom(dcmbuff **buff, FILE *dicom)
  if(ferror(dicom)) return 5;
 
  buff->p = dcmezbuff_DICOMHEADERL;
- char* tocheck;
+ buff->l = nread;
+ byte1 *tocheck;
  if
  (
-  nread < dcmezbuff+DICOMHEADERL ||
-  dcmbuff_get(&tocheck, *buff, strlen(dcmezbuff_DICOMFOURCC)) ||
+  nread < dcmezbuff_DICOMHEADERL ||
+  dcmbuff_get(&tocheck, buff, strlen(dcmezbuff_DICOMFOURCC)) ||
   strncmp(tocheck, dcmezbuff_DICOMFOURCC, strlen(dcmezbuff_DICOMFOURCC))
  ) return 6;
-
- buff->l = nread;
 
  if(feof(dicom)) return -1;
 
