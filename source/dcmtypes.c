@@ -25,12 +25,18 @@
 
 typedef enum
 {
+ v_implicit,
+ v_explicit
+} m_vr;
+
+typedef enum
+{
  e_big,
  e_little
 } m_endian;
 
-typedef enum
+typedef struct
 {
- v_implicit,
- v_explicit
-} m_vr;
+ m_vr v;
+ m_endian e;
+} tsmode;

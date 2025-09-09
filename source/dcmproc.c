@@ -14,7 +14,7 @@
 #include "dcmezbuff.c"
 #include "dcmspecialtag.c"
 
-const int FILEMETATS[] = {v_explicit,e_little};
+const tsmode FILEMETATS = {v_explicit,e_little};
 
 /*
  From dicom standard 5.7.1
@@ -24,7 +24,7 @@ const int FILEMETATS[] = {v_explicit,e_little};
  = 2: failed to allocate memory
  = 3: failed second pull (+4 bytes)
 */
-int getelmeta(dcmel *dest, dcmbuff *source, const int *mode)
+int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
 {
  byte1 *tmp;
  const int FIRSTPULL = 8;
@@ -35,10 +35,13 @@ int getelmeta(dcmel *dest, dcmbuff *source, const int *mode)
 
  memcpy(buff,tmp,FIRSTPULL);
  dest->tag = *(byte4*)buff;
- dcmendian_handletag(&dest->tag, mode[1]);
+ dcmendian_handletag(&dest->tag, mode.e);
 
- if(dcmspecialtag_isnovr(dest->tag) || mode[0] == v_implicit)
+ if(dcmspecialtag_isnovr(dest->tag) || mode.v == v_implicit)
+ {
   dest->length = ((byte4*)buff)[1];
+  memcpy(dest->vr,"xx",2);
+ }
  else if(dcmspecialtag_isshortvr(&buff[4]))
  {
   dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
@@ -58,8 +61,8 @@ int getelmeta(dcmel *dest, dcmbuff *source, const int *mode)
   dest->length=((byte4*)buff)[2];
  }
 
- if(*dcmendian_SYSISLITTLE != mode[1])
-  dcmendian_4flip(dest->length);
+ if(*dcmendian_SYSISLITTLE != mode.e)
+  dest->length = dcmendian_4flip(dest->length);
 
  dest->rawmeta = buff;
 
@@ -75,41 +78,88 @@ int getelmeta(dcmel *dest, dcmbuff *source, const int *mode)
 */
 int geteldata(dcmel *dest, dcmbuff *source)
 {
+ if(dest == NULL || source == NULL) {perror("2:geteldata"); return 1;}
+
+ if(dcmspecialtag_issq(dest->tag) || dest->tag == dcmspecialtag_ITEM) return 0;
+
  byte1 *tmp;
- if(dcmbuff_get(&tmp, source, dest->length)) {perror("1:geteldata"); return 1;}
+ if(dcmbuff_get(&tmp, source, dest->length)) {perror("2:geteldata"); return 2;}
 
  dest->data = malloc(dest->length);
- if(dest->data == NULL) {perror("2:geteldata"); return 2;}
+ if(dest->data == NULL) {perror("3:geteldata"); return 3;}
 
  memcpy(dest->data, tmp, dest->length);
 
  return 0;
 }
 
-int procfilemeta(dcmelarr **arr, dcmbuff *buff)
+/*
+ grab el from buff, process, place in arr
+*/
+int getputel(dcmel **el, dcmelarr *arr, dcmbuff *source, tsmode mode)
 {
- if(dcmelement_mkarr(arr)) {perror("1:procfilemeta"); return 1;}
+ if(el == NULL || arr == NULL || source == NULL || source->data == NULL) {perror("1:getputel"); return 1;}
 
- dcmel *current;
- byte4 nexttag;
+ *el = (dcmel*)malloc(sizeof(dcmel));
+ if(*el == NULL) {perror("2:getputel"); return 2;}
 
- do
+ if(getelmeta(*el, source, mode)) {perror("3:getputel"); return 3;}
+
+ if(geteldata(*el, source)) {perror("4:getputel"); return 4;}
+
+ if(dcmelement_addel(arr, *el)) {perror("5:getputel"); return 5;}
+
+ return 0;
+}
+
+/*
+ process the dicom file metadata into dcmels -> array
+*/
+int procfilemeta(dcmelarr **arr, tsmode **filemode, dcmbuff *source)
+{
+ if(arr == NULL || filemode == NULL) {perror("1:procfilemeta"); return 1;}
+
+ dcmel *el;
+
+ if(dcmelement_mkarr(arr)) {perror("2:procfilemeta"); return 2;}
+
+ if(getputel(&el, *arr, source, FILEMETATS)) {perror("3:procfilemeta"); return 3;}
+
+ byte4 datanumber;
+ memcpy(&datanumber, el->data, sizeof(byte4));
+ if(!dcmendian_SYSISLITTLE)
+  datanumber = dcmendian_4flip(datanumber);
+ int filemetastop = source->p + datanumber;
+ *filemode = NULL;
+
+ while(source->p < filemetastop) /* this will not work with dcmsmartbuff unless the first pull is good */
  {
-  current = malloc(sizeof(dcmel));
-  if(current == NULL) {perror("2:procfilemeta"); return 2;}
+  if(getputel(&el, *arr, source, FILEMETATS)) {perror("4:procfilemeta"); return 4;}
 
-  if(getelmeta(current, buff, FILEMETATS)) {perror("3:procfilemeta"); return 3;}
+  if(el->tag == dcmspecialtag_TSUID)
+   if(dcmspecialtag_tsdecode(filemode, el->data, el->length)) {perror("5:procfilemeta"); return 5;}
+ }
 
-  if(geteldata(current, buff)) {perror("4:procfilemeta"); return 4;}
+ if(*filemode == NULL) {perror("6:procfilemeta"); return 6;}
 
-  if(dcmelement_addel(*arr, current)) {perror("5:procfilemeta"); return 5;}
+ return 0;
+}
 
-  byte1 *tmp;
-  if(dcmbuff_peek(&tmp, buff, sizeof(byte4))) {perror("6:procfilemeta"); return 6;}
+/*
+ process dicom file body into dcmels -> array
+*/
+int procfilebody(dcmelarr **arr, tsmode filemode, dcmbuff *source)
+{
+ if(arr == NULL) {perror("1:procfilebody"); return 1;}
 
-  memcpy(&nexttag,tmp,sizeof(byte4)); 
-  dcmendian_handletag(&nexttag, e_little); 
- } while(((nexttag)&0xFFFF0000) == 0x00020000);
+ dcmel *el;
+
+ if(dcmelement_mkarr(arr)) {perror("2:procfilebody"); return 2;}
+
+ while(source->p < source->l) /* this will not work with dcmsmartbuff */
+  if(getputel(&el, *arr, source, filemode)) {perror("3:procfilebody"); return 3;}
+
+ return 0;
 }
 
 int flagcaveats(void* flagchart)
@@ -146,6 +196,49 @@ int flagcaveats(void* flagchart)
  return 0;
 }
 
+int filebodytest(int argc, char **argv)
+{
+ void* flagchart;
+ char* validflags[] = {"h","help","v","version","f","file","s","start","t","tag","--"};
+
+ mjhargsproc(&flagchart,validflags,argc,argv);
+ flagcaveats(flagchart);
+
+ FILE* dicom = fopen(mjhargsv(flagchart,2),"r");
+ dcmbuff *zero;
+
+ dcmbuff_loaddicom(&zero, dicom);
+ dcmelarr *metaarr;
+ tsmode *mode;
+ procfilemeta(&metaarr, &mode, zero);
+
+ dcmelarr *bodyarr;
+ procfilebody(&bodyarr, *mode, zero);
+
+ int i,j;
+ for(i = 0; i < metaarr->p; i++)
+ {
+  dcmel *el = metaarr->els[i];
+  printf("%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+
+  for(j = 0; j < el->length; j++)
+   printf("%02x ", el->data[j]);
+  printf("\n");
+ }
+
+ printf("***BODYSTART***\n");
+
+ for(i = 0; i < bodyarr->p; i++)
+ {
+  dcmel *el = bodyarr->els[i];
+  printf("%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+
+  for(j = 0; j < el->length; j++)
+   printf("%02x ", el->data[j]);
+  printf("\n");
+ }
+}
+
 int filemetatest(int argc, char **argv)
 {
  void* flagchart;
@@ -159,57 +252,28 @@ int filemetatest(int argc, char **argv)
 
  dcmbuff_loaddicom(&zero, dicom);
  dcmelarr *arr;
+ tsmode *mode;
 
- procfilemeta(&arr, zero);
+ procfilemeta(&arr, &mode, zero);
 
  int i,j;
  for(i = 0; i < arr->p; i++)
  {
   dcmel *el = arr->els[i];
-  printf("%08x %c%c %d\n",el->tag, el->vr[0], el->vr[1], el->length);
+  printf("%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
 
   for(j = 0; j < el->length; j++)
    printf("%02x ", el->data[j]);
-  printf("\n***\n");
- }
-}
-
-int run(int argc, char **argv)
-{
- void* flagchart;
- char* validflags[] = {"h","help","v","version","f","file","s","start","t","tag","--"};
-
- mjhargsproc(&flagchart,validflags,argc,argv);
- flagcaveats(flagchart);
-
- FILE* dicom = fopen(mjhargsv(flagchart,2),"r");
- dcmbuff *zero;
-
- dcmbuff_loaddicom(&zero, dicom);
-
- dcmel el[2];
- int mode[] = {1,1};
- int i,j;
-
- for(i=0;i<2;i++)
- {
-  getelmeta(&el[i],zero,mode);
-  geteldata(&el[i],zero);
-
-  printf("%08x %c%c %d\n",el[i].tag,el[i].vr[0],el[i].vr[1],el[i].length);
-/*  printf("%x %x\n",el[i].buffnum,ftell(dicom));
-*/
-  for(j=0;j<el[i].length;j++)
-   printf("%02x ",el[i].data[j]);
-  printf("\n***\n");
+  printf("\n");
  }
 
- fclose(dicom);
+ printf("\n\n %d %d\n", mode->v, mode->e);
+
  return 0;
 }
 
 int main(int argc, char** argv)
 {
- filemetatest(argc, argv);
+ filebodytest(argc, argv);
  return 0;
 }
