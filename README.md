@@ -1,8 +1,9 @@
 <a top="top"/>
-[toc](#table-of-contents)
 
 # DICOM
 DICOM parser in C
+
+[toc](#table-of-contents)
 
 ## Todo
 ### Basic functionality
