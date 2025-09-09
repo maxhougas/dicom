@@ -1,4 +1,5 @@
 <a top="top"/>
+[toc](#table-of-contents)
 
 # DICOM
 DICOM parser in C
