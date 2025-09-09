@@ -1,4 +1,6 @@
 /*
+ dcmspecialtag.c
+
  Provides functions for checking special dicom elements
 */
 
@@ -6,6 +8,11 @@
 #ifndef _DCMTYPES
 #include "dcmtypes.c"
 #endif
+
+const int dcmspecialtag_ITEM = 0xFFFEE000;
+const int dcmspecialtag_ITEMDELIM = 0xFFFEE00D;
+const int dcmspecialtag_SEQUENCEDELIM = 0xFFFEE0DD;
+const int dcmspecialtag_TSUID = 0x00020010;
 
 /*
  From DICOM standard part 5 section 7.1.2
@@ -50,16 +57,54 @@ int dcmspecialtag_isnovr(byte4 tag)
  return i < NNOVRS;
 }
 
+/*
+ binomial search for sq tag
+ requires SQTAGS from sqtags.c
+*/
 int dcmspecialtag_issq(byte4 tag)
 {
  int low = 0, high = NSQTAGS-1, mid;
- do                                                                                                                       
+ while((mid = (high + low)/2) != low)
  {
-  mid = (high - low)/2;
+  mid = (high + low)/2;
   if(tag == SQTAGS[mid]) return 1;
   if(tag > SQTAGS[mid]) low = mid;
   else high = mid;
- } while(low < high);
- 
+ } 
+
+ return 0;
+}
+
+int dcmspecialtag_tsdecode(tsmode **mode, byte1* tsuid, int l)
+{
+ if(mode == NULL) {perror("1:dcmspecialtag_tsdecode"); return 1;}
+
+ *mode = (tsmode*)malloc(sizeof(tsmode));
+ if(*mode == NULL) {perror("2:dcmspecialtag_tsdecode"); return 2;}
+
+ if(l == 18)
+ {
+  (*mode)->v = v_implicit;
+  (*mode)->e = e_little;
+  return 0;
+ }
+
+ byte1 important = tsuid[18];
+ if(important == '1')
+ {
+  (*mode)->v = v_explicit;
+  (*mode)->e = e_little;
+ } 
+ else if(important == '2')
+ {
+  (*mode)->v = v_explicit;
+  (*mode)->e = e_big;
+ }
+ else /* dicom.nema.org says this is default :) */
+ {
+  (*mode)->v = v_implicit;
+  (*mode)->e = e_little;
+ }
+
  return 0;
 }

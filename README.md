@@ -7,12 +7,14 @@ DICOM parser in C
 ### Basic functionality
 - [x] Create functionality to pull sqs from dicom.nema.org
 - [ ] Test issq functionality
-- [ ] Add single-pass functionality for tag-parsing
+- [x] Add single-pass functionality for tag-parsing
 - [ ] Add second-pass functionality for tree node hanging
-- [ ] Add functinality to dump to ... json or something
+- [ ] Add functinality to dump data
+  - [x] CSV
+  - [ ] JSON
 ### Code Organization
 - [ ] Break subfunctionality into separate files
-  - [x] dcmbuffer(dcmezbuff only)
+  - [x] dcmezbuff
   - [ ] dcmsmartbuff
   - [x] dcmendian
   - [x] dcmspecialtag

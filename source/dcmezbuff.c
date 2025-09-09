@@ -10,6 +10,7 @@
  dcmbuff
  dcmbuff_del
  dcmbuff_get
+ dcmbuff_peek
  dcmbuff_loaddicom
 */
 
@@ -54,9 +55,9 @@ void dcmbuff_del(dcmbuff *todel)
 */
 int dcmbuff_get(byte1 **current, dcmbuff *buff, int numchars)
 {
- if(*current == NULL || buff == NULL || buff->data == NULL) return 1;
+ if(*current == NULL || buff == NULL || buff->data == NULL) {perror("1:dcmbuff_get"); return 1;}
 
- if(buff->l-buff->p < numchars || numchars < 0) return 2;
+ if(buff->l-buff->p < numchars || numchars < 0) {perror("2:dcmbuff_get"); return 2;}
 
  *current = &buff->data[buff->p];
  buff->p += numchars;
@@ -66,9 +67,9 @@ int dcmbuff_get(byte1 **current, dcmbuff *buff, int numchars)
 
 int dcmbuff_peek(byte1 **current, dcmbuff *buff, int numchars)
 {
- if(*current == NULL || buff == NULL || buff->data == NULL) return 1;
+ if(*current == NULL || buff == NULL || buff->data == NULL) {perror("1:dcmbuff_peek"); return 1;}
  
- if(buff->l-buff->p < numchars || numchars < 0) return 2;
+ if(buff->l-buff->p < numchars || numchars < 0) {perror("2:dcmbuff_peek"); return 2;}
 
  *current = &buff->data[buff->p];
 
@@ -77,10 +78,10 @@ int dcmbuff_peek(byte1 **current, dcmbuff *buff, int numchars)
 
 int dcmezbuff_filetoobig(FILE *dicom)
 {
- if(fseek(dicom, 0, SEEK_END)) return 1;
+ if(fseek(dicom, 0, SEEK_END)) {perror("1:dcmbuff_filetoobig"); return 1;}
  long int size = ftell(dicom);
- if(size == -1L) return 2;
- if(size > dcmezbuff_DICOMSIZEMAX) return 3;
+ if(size == -1L) {perror("2:dcmbuff_filetoobig"); return 2;}
+ if(size > dcmezbuff_DICOMSIZEMAX) {perror("3:dcmbuff_filetoobig"); return 3;}
 
  return 0;
 }
@@ -97,24 +98,24 @@ int dcmezbuff_filetoobig(FILE *dicom)
 */
 int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
 {
- if(pbuff == NULL || dicom == NULL) return 1;
+ if(pbuff == NULL || dicom == NULL) {perror("1:dcmbuff_loaddicom"); return 1;}
  int err;
- if(err = dcmezbuff_filetoobig(dicom)) return 2;
+ if(err = dcmezbuff_filetoobig(dicom)) {perror("2:dcmbuff_loaddicom"); return 2;}
 
  long int size = ftell(dicom);
- if(size == -1L) return 3;
+ if(size == -1L) {perror("3:dcmbuff_loaddicom"); return 3;}
 
  rewind(dicom);
 
  byte1 *data = (byte1*)malloc(size);
  *pbuff = (dcmbuff*)malloc(sizeof(dcmbuff));
  dcmbuff *buff = *pbuff;
- if(data == NULL || buff == NULL) return 4;
+ if(data == NULL || buff == NULL) {perror("4:dcmbuff_loaddicom"); return 4;}
 
  buff->data = data;
 
  int nread = fread(data, 1, size, dicom);
- if(ferror(dicom)) return 5;
+ if(ferror(dicom)) {perror("5:dcmbuff_loaddicom"); return 5;}
 
  buff->p = dcmezbuff_DICOMHEADERL;
  buff->l = nread;
@@ -124,9 +125,9 @@ int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
   nread < dcmezbuff_DICOMHEADERL ||
   dcmbuff_get(&tocheck, buff, strlen(dcmezbuff_DICOMFOURCC)) ||
   strncmp(tocheck, dcmezbuff_DICOMFOURCC, strlen(dcmezbuff_DICOMFOURCC))
- ) return 6;
+ ) {perror("6:dcmbuff_loaddicom"); return 6;}
 
- if(feof(dicom)) return -1;
+ if(feof(dicom)) {perror("-1:dcmbuff_loaddicom"); return -1;}
 
  return 0;
 }
