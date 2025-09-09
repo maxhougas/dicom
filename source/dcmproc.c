@@ -39,13 +39,15 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
 
  if(dcmspecialtag_isnovr(dest->tag) || mode.v == v_implicit)
  {
-  dest->length = ((byte4*)buff)[1];
   memcpy(dest->vr,"xx",2);
+  dest->length = ((byte4*)buff)[1];
+  dest->metalength = 8;
  }
  else if(dcmspecialtag_isshortvr(&buff[4]))
  {
   dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
   dest->length = ((byte2*)buff)[3];
+  dest->metalength = 8;
  }
  else /*explicit vr, not short*/
  {
@@ -59,6 +61,7 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
   memcpy(&buff[FIRSTPULL], tmp, SECONDPULL);
   dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
   dest->length=((byte4*)buff)[2];
+  dest->metalength = 12;
  }
 
  if(*dcmendian_SYSISLITTLE != mode.e)
@@ -181,11 +184,6 @@ int flagcaveats(void* flagchart)
  else if(mjhargsv(flagchart,2)==NULL)
  {
   printf("File not specified\n");
-  exit(2);
- }
- else if(mjhargsv(flagchart,4)==NULL)
- {
-  printf("Tag(s) not specified\n");
   exit(2);
  }
  else

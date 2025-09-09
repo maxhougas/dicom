@@ -27,14 +27,12 @@
 */
 typedef struct
 {
- unsigned long long buffnum; /* depricated */
- unsigned long long pos; /* depricated */
  byte4 tag;
  byte1 vr[2];
+ byte1 metalength;
  byte4 length;
  byte1* rawmeta;
  byte1* data;
- unsigned long long datastop; /* depricated */
 } dcmel;
 
 /*
