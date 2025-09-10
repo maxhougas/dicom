@@ -2,6 +2,7 @@
 
 # DICOM
 DICOM parser in C
+-More than half of the code (by lines) is procedurally generated!
 
 [toc](#table-of-contents)
 
