@@ -160,35 +160,96 @@ int procfilebody(dcmelarr **arr, tsmode filemode, dcmbuff *source)
  return 0;
 }
 
-int dooutput(char *outfname, int format, dcmelarr *meta, dcmelarr *body)
+int dooutput(char *outfname, m_format format, dcmelarr *meta, dcmelarr *body)
 {
  int i,j;
  FILE *outfile = strcmp("-",outfname) ? fopen(outfname, "w") : stdout;
  if(outfile == NULL) {perror("1:dooutput"); return 1;}
 
- fprintf(outfile, "***METASTART***");
-
- for(i = 0; i < meta->p; i++)
+ switch(format)
  {
-  dcmel *el = meta->els[i];
-  fprintf(outfile, "%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+ case f_json:
+  fprintf(outfile, "{\n");
 
-  for(j = 0; j < el->length; j++)
-   fprintf(outfile, "%02x ", el->data[j]);
-  fprintf(outfile, "\n");
- }
+  fprintf(outfile, " \"meta\": [\n");
+  for(i = 0; i < meta->p; i++)
+  {
+   dcmel *el = meta->els[i];
+  fprintf(outfile, "  {\n");
+  fprintf(outfile, "   \"tag\": %d,\n", el->tag);
+  fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
+  fprintf(outfile, "   \"length\": %d,\n", el->length);
+  fprintf(outfile, "   \"value\": \"");
+   for(j = 0; j < el->length; j++)
+   {
+    fprintf(outfile, "%02x", el->data[j]);
+    if(j < el->length - 1)
+     fprintf(outfile, " ");
+    else
+     fprintf(outfile,"\"\n");
+   }
+  fprintf(outfile, "  }");
+   if(i < meta->p - 1)
+    fprintf(outfile, ",\n");
+   else
+    fprintf(outfile, "\n");
+  }
+  fprintf(outfile, " ],\n");
 
- fprintf(outfile, "***BODYSTART***\n");
+  fprintf(outfile, " \"body\": [\n");
+  for(i = 0; i < body->p; i++)
+  {
+   dcmel *el = body->els[i];
+  fprintf(outfile, "  {\n");
+  fprintf(outfile, "   \"tag\": %d,\n", el->tag);
+  fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
+  fprintf(outfile, "   \"length\": %d,\n", el->length);
+  fprintf(outfile, "   \"value\": \"");
+   for(j = 0; j < el->length; j++)
+   {
+    fprintf(outfile, "%02x", el->data[j]);
+    if(j < el->length - 1)
+     fprintf(outfile, " ");
+    else
+     fprintf(outfile,"\"\n");
+   }
+  fprintf(outfile, "  }");
+   if(i < body->p - 1)
+    fprintf(outfile, ",\n");
+   else
+    fprintf(outfile, "\n");
+  }
+  fprintf(outfile, " ]\n");
+ 
+  fprintf(outfile, "}");
 
- for(i = 0; i < body->p; i++)
- {
-  dcmel *el = body->els[i];
-  fprintf(outfile, "%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+ break;
 
-  for(j = 0; j < el->length; j++)
-   fprintf(outfile, "%02x ", el->data[j]);
-  fprintf(outfile, "\n");
- }
+ default:
+  fprintf(outfile, "***METASTART***\n");
+
+  for(i = 0; i < meta->p; i++)
+  {
+   dcmel *el = meta->els[i];
+   fprintf(outfile, "%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+ 
+   for(j = 0; j < el->length; j++)
+    fprintf(outfile, "%02x ", el->data[j]);
+   fprintf(outfile, "\n");
+  }
+
+  fprintf(outfile, "***BODYSTART***\n");
+ 
+  for(i = 0; i < body->p; i++)
+  {
+   dcmel *el = body->els[i];
+   fprintf(outfile, "%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+ 
+   for(j = 0; j < el->length; j++)
+    fprintf(outfile, "%02x ", el->data[j]);
+   fprintf(outfile, "\n");
+  }
+ } 
 
  if(fclose(outfile)) {perror("2:dooutput"); return 2;}
 
@@ -199,10 +260,11 @@ int doflagstuff(void **pchart, int argc, char **argv)
 {
  char *FLAG_HELP[] = {"\0","h","help",NULL};
  char *FLAG_VERSION[] = {"\0","v","version",NULL};
- char *FLAG_CSV[] = {"\0","c","csv","comma-separated-variable",NULL};
- char *FLAG_INPUT[] = {"\1","f","file","input",NULL};
+ char *FLAG_CSV[] = {"\0","c","csv",NULL};
+ char *FLAG_FILE[] = {"\1","f","file","input",NULL};
+ char *FLAG_JSON[] = {"\0","j","json",NULL};
  char *FLAG_OUTPUT[] = {"\1","o","output",NULL};
- char **VALIDFLAGS[] = {FLAG_HELP, FLAG_VERSION, FLAG_CSV, FLAG_INPUT, FLAG_OUTPUT,NULL};
+ char **VALIDFLAGS[] = {FLAG_HELP, FLAG_VERSION, FLAG_CSV, FLAG_FILE, FLAG_JSON, FLAG_OUTPUT,NULL};
 
  hougasargs_argproc(pchart, VALIDFLAGS, argc, argv);
  void *chart = *pchart;
@@ -213,6 +275,8 @@ int doflagstuff(void **pchart, int argc, char **argv)
   printf("-v, --version : version info (build date)\n");
   printf("-c, --csv     : output in CSV format (default)\n");
   printf("-f, --file    : file to process stdin is default\n");
+  printf("    --input");
+  printf("-j, --json    : output in JSON format\n");
   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
   exit(0);
  }
@@ -223,13 +287,13 @@ int doflagstuff(void **pchart, int argc, char **argv)
  }
  if(hougasargs_flagvalue(chart, 3) == NULL)
  {
-  perror("Input file not specified; assuming stdin\n");
+  fprintf(stderr,"Input file not specified; assuming stdin\n");
   hougasargs_flagvalue(chart, 3) = "-";
  }
- if(hougasargs_flagvalue(chart, 4) == NULL)
+ if(hougasargs_flagvalue(chart, 5) == NULL)
  {
-  perror("Output file not specified: assuming stdout\n");
-  hougasargs_flagvalue(chart, 4) = "-";
+  fprintf(stderr,"Output file not specified: assuming stdout\n");
+  hougasargs_flagvalue(chart, 5) = "-";
  }
 
  return 0;
@@ -240,6 +304,9 @@ int parsefile(int argc, char **argv)
  void *chart;
  doflagstuff(&chart, argc, argv);
  char* infname = hougasargs_flagvalue(chart, 3);
+ m_format format = hougasargs_flagcount(chart, 4) ? f_json : f_csv;
+ char* outfname = hougasargs_flagvalue(chart, 5);
+
  FILE* dicom = strcmp("-",infname) ? fopen(infname, "r") : stdin;
  if(dicom == NULL) {perror("1:parsefile"); return 1;}
 
@@ -254,7 +321,7 @@ int parsefile(int argc, char **argv)
  dcmelarr *bodyarr;
  procfilebody(&bodyarr, *mode, onebuff);
 
- if(dooutput(hougasargs_flagvalue(chart, 4), 0, metaarr, bodyarr)) {perror("3:parsefile"); return 3;}
+ if(dooutput(outfname, format, metaarr, bodyarr)) {perror("3:parsefile"); return 3;}
 
  return 0;
 }

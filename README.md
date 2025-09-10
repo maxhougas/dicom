@@ -11,9 +11,9 @@ DICOM parser in C
 - [ ] Test issq functionality
 - [x] Add single-pass functionality for tag-parsing
 - [ ] Add second-pass functionality for tree node hanging
-- [ ] Add functinality to dump data
+- [x] Add functinality to dump data
   - [x] CSV
-  - [ ] JSON
+  - [x] JSON
 - [x] Support stdin and stdout
 - [x] Fix CLI arg processing
 ### Code Organization
