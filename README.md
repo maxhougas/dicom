@@ -3,15 +3,19 @@
 # DICOM
 DICOM parser in C
 
+[toc](#table-of-contents)
+
 ## Todo
 ### Basic functionality
 - [x] Create functionality to pull sqs from dicom.nema.org
 - [ ] Test issq functionality
 - [x] Add single-pass functionality for tag-parsing
 - [ ] Add second-pass functionality for tree node hanging
-- [ ] Add functinality to dump data
+- [x] Add functinality to dump data
   - [x] CSV
-  - [ ] JSON
+  - [x] JSON
+- [x] Support stdin and stdout
+- [x] Fix CLI arg processing
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
@@ -56,5 +60,12 @@ DICOM parser in C
 ### Windows
 - Currently Makefile assumes access to GCC.
 - The code should be platform independent, but you'll need to generate source/sqtags.c on your own.
+  - Generated from tables @:
+    - [chapter 7](https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_7.html)
+    - [chapter 8](https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_8.html)
+    - [chapter 9](https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_9.html)
+    - [chapter 6](https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_6.html)
+  - constant byte4 array SQTAGS
+  - constant int NSQTAGS
 
 [top](#top) [toc](#table-of-contents)

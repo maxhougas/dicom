@@ -35,6 +35,12 @@ typedef enum
  e_little
 } m_endian;
 
+typedef enum
+{
+ f_csv,
+ f_json
+} m_format;
+
 typedef struct
 {
  m_vr v;

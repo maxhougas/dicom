@@ -14,20 +14,19 @@
 #include "dcmezbuff.c"
 #include "dcmspecialtag.c"
 
+#define FNAMEL 255
+
 const tsmode FILEMETATS = {v_explicit,e_little};
 
 /*
  From dicom standard 5.7.1
- mode [m_vr,m_endian]
- = 0: success
- = 1: failed first pull (8 bytes)
- = 2: failed to allocate memory
- = 3: failed second pull (+4 bytes)
+ read and parse element metadata
 */
 int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
 {
  byte1 *tmp;
  const int FIRSTPULL = 8;
+
  if(dcmbuff_get(&tmp, source, FIRSTPULL)) {perror("1:getelmeta"); return 1;}
 
  byte1 *buff = malloc(FIRSTPULL);
@@ -73,15 +72,11 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
 }
 
 /*
- = 0: success
- = 1: failed dcmbuff_get
- = 2: failed to allocate memory
-
- add code to handle sequence/item
+ copy element data from buffer
 */
 int geteldata(dcmel *dest, dcmbuff *source)
 {
- if(dest == NULL || source == NULL) {perror("2:geteldata"); return 1;}
+ if(dest == NULL || source == NULL) {perror("1:geteldata"); return 1;}
 
  if(dcmspecialtag_issq(dest->tag) || dest->tag == dcmspecialtag_ITEM) return 0;
 
@@ -165,113 +160,173 @@ int procfilebody(dcmelarr **arr, tsmode filemode, dcmbuff *source)
  return 0;
 }
 
-int flagcaveats(void* flagchart)
+int dooutput(char *outfname, m_format format, dcmelarr *meta, dcmelarr *body)
 {
- if(mjhargsc(flagchart,0))
+ int i,j;
+ FILE *outfile = strcmp("-",outfname) ? fopen(outfname, "w") : stdout;
+ if(outfile == NULL) {perror("1:dooutput"); return 1;}
+
+ switch(format)
  {
-  printf("-h, --help: this\n");
-  printf("-v, --version: version info\n");
-  printf("-f, --file: file to search\n");
-  printf("-t, --tag: specify tag(s) to search for\n");
-  printf("-s, --start: starting position in hex\n");
-  exit(1);
+ case f_json:
+  fprintf(outfile, "{\n");
+
+  fprintf(outfile, " \"meta\": [\n");
+  for(i = 0; i < meta->p; i++)
+  {
+   dcmel *el = meta->els[i];
+  fprintf(outfile, "  {\n");
+  fprintf(outfile, "   \"tag\": %d,\n", el->tag);
+  fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
+  fprintf(outfile, "   \"length\": %d,\n", el->length);
+  fprintf(outfile, "   \"value\": \"");
+   for(j = 0; j < el->length; j++)
+   {
+    fprintf(outfile, "%02x", el->data[j]);
+    if(j < el->length - 1)
+     fprintf(outfile, " ");
+    else
+     fprintf(outfile,"\"\n");
+   }
+  fprintf(outfile, "  }");
+   if(i < meta->p - 1)
+    fprintf(outfile, ",\n");
+   else
+    fprintf(outfile, "\n");
+  }
+  fprintf(outfile, " ],\n");
+
+  fprintf(outfile, " \"body\": [\n");
+  for(i = 0; i < body->p; i++)
+  {
+   dcmel *el = body->els[i];
+  fprintf(outfile, "  {\n");
+  fprintf(outfile, "   \"tag\": %d,\n", el->tag);
+  fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
+  fprintf(outfile, "   \"length\": %d,\n", el->length);
+  fprintf(outfile, "   \"value\": \"");
+   for(j = 0; j < el->length; j++)
+   {
+    fprintf(outfile, "%02x", el->data[j]);
+    if(j < el->length - 1)
+     fprintf(outfile, " ");
+    else
+     fprintf(outfile,"\"\n");
+   }
+  fprintf(outfile, "  }");
+   if(i < body->p - 1)
+    fprintf(outfile, ",\n");
+   else
+    fprintf(outfile, "\n");
+  }
+  fprintf(outfile, " ]\n");
+ 
+  fprintf(outfile, "}");
+
+ break;
+
+ default:
+  fprintf(outfile, "***METASTART***\n");
+
+  for(i = 0; i < meta->p; i++)
+  {
+   dcmel *el = meta->els[i];
+   fprintf(outfile, "%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+ 
+   for(j = 0; j < el->length; j++)
+    fprintf(outfile, "%02x ", el->data[j]);
+   fprintf(outfile, "\n");
+  }
+
+  fprintf(outfile, "***BODYSTART***\n");
+ 
+  for(i = 0; i < body->p; i++)
+  {
+   dcmel *el = body->els[i];
+   fprintf(outfile, "%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+ 
+   for(j = 0; j < el->length; j++)
+    fprintf(outfile, "%02x ", el->data[j]);
+   fprintf(outfile, "\n");
+  }
+ } 
+
+ if(fclose(outfile)) {perror("2:dooutput"); return 2;}
+
+ return 0;
+}
+
+int doflagstuff(void **pchart, int argc, char **argv)
+{
+ char *FLAG_HELP[] = {"\0","h","help",NULL};
+ char *FLAG_VERSION[] = {"\0","v","version",NULL};
+ char *FLAG_CSV[] = {"\0","c","csv",NULL};
+ char *FLAG_FILE[] = {"\1","f","file","input",NULL};
+ char *FLAG_JSON[] = {"\0","j","json",NULL};
+ char *FLAG_OUTPUT[] = {"\1","o","output",NULL};
+ char **VALIDFLAGS[] = {FLAG_HELP, FLAG_VERSION, FLAG_CSV, FLAG_FILE, FLAG_JSON, FLAG_OUTPUT,NULL};
+
+ hougasargs_argproc(pchart, VALIDFLAGS, argc, argv);
+ void *chart = *pchart;
+
+ if(hougasargs_flagcount(chart, 0))
+ {
+  printf("-h, --help    : this\n");
+  printf("-v, --version : version info (build date)\n");
+  printf("-c, --csv     : output in CSV format (default)\n");
+  printf("-f, --file    : file to process stdin is default\n");
+  printf("    --input");
+  printf("-j, --json    : output in JSON format\n");
+  printf("-o, --output  : file to write to (kablam!) stdout is default\n");
+  exit(0);
  }
- else if(mjhargsc(flagchart,1))
+ if(hougasargs_flagcount(chart, 1))
  {
-  printf("Built on %s\n",__DATE__);
-  exit(1);
+  printf("Built on %s\n", __DATE__);
+  exit(0);
  }
- else if(mjhargsv(flagchart,2)==NULL)
+ if(hougasargs_flagvalue(chart, 3) == NULL)
  {
-  printf("File not specified\n");
-  exit(2);
+  fprintf(stderr,"Input file not specified; assuming stdin\n");
+  hougasargs_flagvalue(chart, 3) = "-";
  }
- else
+ if(hougasargs_flagvalue(chart, 5) == NULL)
  {
-  if(mjhargsv(flagchart,3)==NULL) mjhargsv(flagchart,3)="0";
+  fprintf(stderr,"Output file not specified: assuming stdout\n");
+  hougasargs_flagvalue(chart, 5) = "-";
  }
 
  return 0;
 }
 
-int filebodytest(int argc, char **argv)
+int parsefile(int argc, char **argv)
 {
- void* flagchart;
- char* validflags[] = {"h","help","v","version","f","file","s","start","t","tag","--"};
+ void *chart;
+ doflagstuff(&chart, argc, argv);
+ char* infname = hougasargs_flagvalue(chart, 3);
+ m_format format = hougasargs_flagcount(chart, 4) ? f_json : f_csv;
+ char* outfname = hougasargs_flagvalue(chart, 5);
 
- mjhargsproc(&flagchart,validflags,argc,argv);
- flagcaveats(flagchart);
+ FILE* dicom = strcmp("-",infname) ? fopen(infname, "r") : stdin;
+ if(dicom == NULL) {perror("1:parsefile"); return 1;}
 
- FILE* dicom = fopen(mjhargsv(flagchart,2),"r");
- dcmbuff *zero;
+ dcmbuff *onebuff;
+ dcmbuff_loaddicom(&onebuff, dicom);
+ if(fclose(dicom)) {perror("2:parsefile; continuing");}
 
- dcmbuff_loaddicom(&zero, dicom);
  dcmelarr *metaarr;
  tsmode *mode;
- procfilemeta(&metaarr, &mode, zero);
+ procfilemeta(&metaarr, &mode, onebuff);
 
  dcmelarr *bodyarr;
- procfilebody(&bodyarr, *mode, zero);
+ procfilebody(&bodyarr, *mode, onebuff);
 
- int i,j;
- for(i = 0; i < metaarr->p; i++)
- {
-  dcmel *el = metaarr->els[i];
-  printf("%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
-
-  for(j = 0; j < el->length; j++)
-   printf("%02x ", el->data[j]);
-  printf("\n");
- }
-
- printf("***BODYSTART***\n");
-
- for(i = 0; i < bodyarr->p; i++)
- {
-  dcmel *el = bodyarr->els[i];
-  printf("%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
-
-  for(j = 0; j < el->length; j++)
-   printf("%02x ", el->data[j]);
-  printf("\n");
- }
-}
-
-int filemetatest(int argc, char **argv)
-{
- void* flagchart;
- char* validflags[] = {"h","help","v","version","f","file","s","start","t","tag","--"};
-
- mjhargsproc(&flagchart,validflags,argc,argv);
- flagcaveats(flagchart);
-
- FILE* dicom = fopen(mjhargsv(flagchart,2),"r");
- dcmbuff *zero;
-
- dcmbuff_loaddicom(&zero, dicom);
- dcmelarr *arr;
- tsmode *mode;
-
- procfilemeta(&arr, &mode, zero);
-
- int i,j;
- for(i = 0; i < arr->p; i++)
- {
-  dcmel *el = arr->els[i];
-  printf("%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
-
-  for(j = 0; j < el->length; j++)
-   printf("%02x ", el->data[j]);
-  printf("\n");
- }
-
- printf("\n\n %d %d\n", mode->v, mode->e);
+ if(dooutput(outfname, format, metaarr, bodyarr)) {perror("3:parsefile"); return 3;}
 
  return 0;
 }
 
 int main(int argc, char** argv)
 {
- filebodytest(argc, argv);
- return 0;
+ return parsefile(argc, argv);
 }
