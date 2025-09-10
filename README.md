@@ -14,6 +14,8 @@ DICOM parser in C
 - [ ] Add functinality to dump data
   - [x] CSV
   - [ ] JSON
+- [x] Support stdin and stdout
+- [x] Fix CLI arg processing
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
