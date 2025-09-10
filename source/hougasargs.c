@@ -222,7 +222,7 @@ int hougasargs_testargproc(void **pflagchart, char ***validflags, int argc, char
 
  return 0;
 }
-
+/*
 int hougasargs(int argc, char** argv)
 {
  int i;
@@ -241,3 +241,4 @@ int hougasargs(int argc, char** argv)
 
  return 0;
 }
+*/

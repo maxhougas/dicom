@@ -2,6 +2,7 @@
 
 # DICOM
 DICOM parser in C
+-More than half of the code (by lines) is procedurally generated!
 
 [toc](#table-of-contents)
 
@@ -14,8 +15,10 @@ DICOM parser in C
 - [x] Add functinality to dump data
   - [x] CSV
   - [x] JSON
+  - [x] YAML
 - [x] Support stdin and stdout
 - [x] Fix CLI arg processing
+- [ ] Tag -> English dictionary
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
@@ -23,13 +26,16 @@ DICOM parser in C
   - [x] dcmendian
   - [x] dcmspecialtag
   - [x] dcmtypes
+  - [ ] logging
+  - [ ] output
 - [x] Pull pulltable.sh functionality into Makefile
 ### Meta stuff
 - [x] Create develop branch
 - [ ] Update README
-- [ ] Deal with types
+- [x] Deal with types
   - [x] Decide whether to proceed with byte1 byte2 byte4 or use char short int (going with bytex)
-  - [ ] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
+  - [x] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
+- [x] Enable logging to file
 
 ## Table of Contents
 - [Todo](#todo)
