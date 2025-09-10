@@ -105,7 +105,7 @@ int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
 
  if(dicom == stdin)
  {
-  data = malloc(dcmezbuff_DICOMSIZEMAX);
+  data = (byte1*)malloc(dcmezbuff_DICOMSIZEMAX);
   if(data == NULL) {perror("2:dcmbuff_loaddicom"); return 2;}
 
   nread = fread(data, 1, dcmezbuff_DICOMSIZEMAX, stdin);
@@ -121,10 +121,10 @@ int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
   if(size == -1L) {perror("3:dcmbuff_loaddicom"); return 3;}
 
   rewind(dicom);
-  byte1 *data = (byte1*)malloc(size);
+  data = (byte1*)malloc(size);
   if(data == NULL) {perror("4:dcmbuff_loaddicom"); return 4;}
 
-  int nread = fread(data, 1, size, dicom);
+  nread = fread(data, 1, size, dicom);
   if(ferror(dicom)) {perror("5:dcmbuff_loaddicom"); return 5;}
  }
 
@@ -135,6 +135,7 @@ int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
  (*pbuff)->p = dcmezbuff_DICOMHEADERL;
  (*pbuff)->l = nread;
  byte1 *tocheck;
+
  if
  (
   nread < dcmezbuff_DICOMHEADERL ||
