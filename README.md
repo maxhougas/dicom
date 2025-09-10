@@ -14,10 +14,11 @@ DICOM parser in C
 - [x] Add functinality to dump data
   - [x] CSV
   - [x] JSON
+  - [ ] YAML
 - [x] Support stdin and stdout
 - [x] Fix CLI arg processing
 ### Code Organization
-- [ ] Break subfunctionality into separate files
+- [x] Break subfunctionality into separate files
   - [x] dcmezbuff
   - [ ] dcmsmartbuff
   - [x] dcmendian
@@ -27,9 +28,9 @@ DICOM parser in C
 ### Meta stuff
 - [x] Create develop branch
 - [ ] Update README
-- [ ] Deal with types
+- [x] Deal with types
   - [x] Decide whether to proceed with byte1 byte2 byte4 or use char short int (going with bytex)
-  - [ ] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
+  - [x] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
 
 ## Table of Contents
 - [Todo](#todo)
