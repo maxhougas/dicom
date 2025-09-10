@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define INCLUDESTDINT 0
 #if INCLUDESTDINT == 1
@@ -163,18 +164,59 @@ int procfilebody(dcmelarr **arr, tsmode filemode, dcmbuff *source)
 int dooutput(char *outfname, m_format format, dcmelarr *meta, dcmelarr *body)
 {
  int i,j;
+ dcmel *el;
  FILE *outfile = strcmp("-",outfname) ? fopen(outfname, "w") : stdout;
  if(outfile == NULL) {perror("1:dooutput"); return 1;}
 
  switch(format)
  {
+ case f_yaml:
+  fprintf(outfile, "---\n");
+
+  fprintf(outfile, "meta: \n");
+  for(i = 0; i < meta->p; i++)
+  {
+   el = meta->els[i];
+  fprintf(outfile, "- tag: 0x%08X\n", el->tag);
+  fprintf(outfile, "  vr: %c%c\n", el->vr[0],el->vr[1]);
+  fprintf(outfile, "  length: 0x%08X\n", el->length);
+  fprintf(outfile, "  value: [ ");
+   for(j = 0; j < el->length; j++)
+   {
+    fprintf(outfile, "0x%02X", j);
+    if(j < el->length -1)
+     fprintf(outfile,", ");
+    else
+     fprintf(outfile," ]\n"); 
+   }
+  }
+
+  fprintf(outfile, "body: \n");
+  for(i = 0; i < meta->p; i++)
+  {
+   el = body->els[i];
+  fprintf(outfile, "- tag: 0x%08X\n", el->tag);
+  fprintf(outfile, "  vr: %c%c\n", el->vr[0],el->vr[1]);
+  fprintf(outfile, "  length: 0x%08X\n", el->length);
+  fprintf(outfile, "  value: [ ");
+   for(j = 0; j < el->length; j++)
+   {
+    fprintf(outfile, "0x%02X", j);
+    if(j < el->length -1)
+     fprintf(outfile,", ");
+    else
+     fprintf(outfile," ]\n"); 
+   }
+  }
+
+ break;
  case f_json:
   fprintf(outfile, "{\n");
 
   fprintf(outfile, " \"meta\": [\n");
   for(i = 0; i < meta->p; i++)
   {
-   dcmel *el = meta->els[i];
+   el = meta->els[i];
   fprintf(outfile, "  {\n");
   fprintf(outfile, "   \"tag\": %d,\n", el->tag);
   fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
@@ -199,7 +241,7 @@ int dooutput(char *outfname, m_format format, dcmelarr *meta, dcmelarr *body)
   fprintf(outfile, " \"body\": [\n");
   for(i = 0; i < body->p; i++)
   {
-   dcmel *el = body->els[i];
+   el = body->els[i];
   fprintf(outfile, "  {\n");
   fprintf(outfile, "   \"tag\": %d,\n", el->tag);
   fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
@@ -225,16 +267,17 @@ int dooutput(char *outfname, m_format format, dcmelarr *meta, dcmelarr *body)
 
  break;
 
+ case f_csv:
  default:
   fprintf(outfile, "***METASTART***\n");
 
   for(i = 0; i < meta->p; i++)
   {
-   dcmel *el = meta->els[i];
-   fprintf(outfile, "%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+   el = meta->els[i];
+   fprintf(outfile, "0x%08X,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
  
    for(j = 0; j < el->length; j++)
-    fprintf(outfile, "%02x ", el->data[j]);
+    fprintf(outfile, "0x%02X ", el->data[j]);
    fprintf(outfile, "\n");
   }
 
@@ -242,11 +285,11 @@ int dooutput(char *outfname, m_format format, dcmelarr *meta, dcmelarr *body)
  
   for(i = 0; i < body->p; i++)
   {
-   dcmel *el = body->els[i];
-   fprintf(outfile, "%08x,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
+   el = body->els[i];
+   fprintf(outfile, "0x%08X,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
  
    for(j = 0; j < el->length; j++)
-    fprintf(outfile, "%02x ", el->data[j]);
+    fprintf(outfile, "0x%02X ", el->data[j]);
    fprintf(outfile, "\n");
   }
  } 
@@ -260,11 +303,24 @@ int doflagstuff(void **pchart, int argc, char **argv)
 {
  char *FLAG_HELP[] = {"\0","h","help",NULL};
  char *FLAG_VERSION[] = {"\0","v","version",NULL};
- char *FLAG_CSV[] = {"\0","c","csv",NULL};
+ char *FLAG_CSV[] = {"\0","c","csv","CSV",NULL};
  char *FLAG_FILE[] = {"\1","f","file","input",NULL};
- char *FLAG_JSON[] = {"\0","j","json",NULL};
+ char *FLAG_JSON[] = {"\0","j","json","JSON",NULL};
+ char *FLAG_LOG[] = {"\1","l","log",NULL};
  char *FLAG_OUTPUT[] = {"\1","o","output",NULL};
- char **VALIDFLAGS[] = {FLAG_HELP, FLAG_VERSION, FLAG_CSV, FLAG_FILE, FLAG_JSON, FLAG_OUTPUT,NULL};
+ char *FLAG_YAML[] = {"\0","y","yaml","YAML",NULL};
+ char **VALIDFLAGS[] =
+ {
+/* 00 */ FLAG_HELP,
+/* 01 */ FLAG_VERSION,
+/* 02 */ FLAG_CSV,
+/* 03 */ FLAG_FILE,
+/* 04 */ FLAG_JSON,
+/* 05 */ FLAG_LOG,
+/* 06 */ FLAG_OUTPUT,
+/* 07 */ FLAG_YAML,
+  NULL
+ };
 
  hougasargs_argproc(pchart, VALIDFLAGS, argc, argv);
  void *chart = *pchart;
@@ -274,10 +330,16 @@ int doflagstuff(void **pchart, int argc, char **argv)
   printf("-h, --help    : this\n");
   printf("-v, --version : version info (build date)\n");
   printf("-c, --csv     : output in CSV format (default)\n");
+  printf("    --CSV\n");
   printf("-f, --file    : file to process stdin is default\n");
-  printf("    --input");
+  printf("    --input\n");
   printf("-j, --json    : output in JSON format\n");
+  printf("    --JSON\n");
+  printf("-l, --log     : logfile (kablam!); some errors are printed to stderr anyway");
+  printf("                default is stderr");
   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
+  printf("-y, --yaml    : output in YAML format\n");
+  printf("    --YAML\n");
   exit(0);
  }
  if(hougasargs_flagcount(chart, 1))
@@ -292,8 +354,13 @@ int doflagstuff(void **pchart, int argc, char **argv)
  }
  if(hougasargs_flagvalue(chart, 5) == NULL)
  {
-  fprintf(stderr,"Output file not specified: assuming stdout\n");
+  fprintf(stderr,"Log file not specified; logging to stderr\n");
   hougasargs_flagvalue(chart, 5) = "-";
+ }
+ if(hougasargs_flagvalue(chart, 6) == NULL)
+ {
+  fprintf(stderr,"Output file not specified: assuming stdout\n");
+  hougasargs_flagvalue(chart, 6) = "-";
  }
 
  return 0;
@@ -303,25 +370,60 @@ int parsefile(int argc, char **argv)
 {
  void *chart;
  doflagstuff(&chart, argc, argv);
+
+ char* errfname = hougasargs_flagvalue(chart, 5);
+ FILE* errfile = strcmp("-",errfname) ? fopen(errfname, "a") : stderr;
+ if(errfile == NULL) {perror("1:parsefile"); return 1;}
+ time_t now = time(&now);
+ fprintf(errfile,"%ld  : ", now);
+ struct tm *snow = gmtime(&now);
+ int month = snow->tm_mon + 1;
+ int year = snow->tm_year + 1900;
+ fprintf(errfile,"%04d_%02d_%02d %02d:%02d:%02d Z  : Log file opened\n", year, month, snow->tm_mday, snow->tm_hour, snow->tm_min, snow->tm_sec);
+
  char* infname = hougasargs_flagvalue(chart, 3);
- m_format format = hougasargs_flagcount(chart, 4) ? f_json : f_csv;
- char* outfname = hougasargs_flagvalue(chart, 5);
+ m_format format = hougasargs_flagcount(chart, 2) ? f_csv :
+                   hougasargs_flagcount(chart, 4) ? f_json :
+                   hougasargs_flagcount(chart, 7) ? f_yaml :
+                                                    f_csv;
+ char* outfname = hougasargs_flagvalue(chart, 6);
 
  FILE* dicom = strcmp("-",infname) ? fopen(infname, "r") : stdin;
- if(dicom == NULL) {perror("1:parsefile"); return 1;}
+ if(dicom == NULL) 
+ {
+  fprintf(errfile, " ERROR 2: failed to open file %s\n", infname);
+  return 2;
+ }
 
  dcmbuff *onebuff;
  dcmbuff_loaddicom(&onebuff, dicom);
- if(fclose(dicom)) {perror("2:parsefile; continuing");}
+ if(fclose(dicom))
+  fprintf(errfile, " ERROR 3: failed to close file %s. Continuing\n", infname);
 
  dcmelarr *metaarr;
  tsmode *mode;
- procfilemeta(&metaarr, &mode, onebuff);
+ if(procfilemeta(&metaarr, &mode, onebuff)) 
+ {
+  fprintf(errfile, " ERROR 4: failed to process file metadata elements\n");
+  return 4;
+ }
 
  dcmelarr *bodyarr;
- procfilebody(&bodyarr, *mode, onebuff);
+ if(procfilebody(&bodyarr, *mode, onebuff))
+ {
+  fprintf(errfile, " ERROR 5: failed to process file body elements\n");
+  return 5;
+ }
 
- if(dooutput(outfname, format, metaarr, bodyarr)) {perror("3:parsefile"); return 3;}
+ if(dooutput(outfname, format, metaarr, bodyarr))
+ {
+  fprintf(errfile, " ERROR 6: failed to write to file %s\n", outfname);
+  return 6;
+ }
+
+ time_t end = time(&end);
+ fprintf(errfile, "%ld  : %010ld             : Operations completed successfully\n", end, now-end);
+ if(fclose(errfile)) {perror("7:parsefile; continuing");
 
  return 0;
 }

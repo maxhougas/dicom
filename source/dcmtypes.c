@@ -38,7 +38,8 @@ typedef enum
 typedef enum
 {
  f_csv,
- f_json
+ f_json,
+ f_yaml
 } m_format;
 
 typedef struct

@@ -15,16 +15,18 @@ DICOM parser in C
 - [x] Add functinality to dump data
   - [x] CSV
   - [x] JSON
-  - [ ] YAML
+  - [x] YAML
 - [x] Support stdin and stdout
 - [x] Fix CLI arg processing
 ### Code Organization
-- [x] Break subfunctionality into separate files
+- [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
   - [ ] dcmsmartbuff
   - [x] dcmendian
   - [x] dcmspecialtag
   - [x] dcmtypes
+  - [ ] logging
+  - [ ] output
 - [x] Pull pulltable.sh functionality into Makefile
 ### Meta stuff
 - [x] Create develop branch
@@ -32,6 +34,7 @@ DICOM parser in C
 - [x] Deal with types
   - [x] Decide whether to proceed with byte1 byte2 byte4 or use char short int (going with bytex)
   - [x] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
+- [x] Enable logging to file
 
 ## Table of Contents
 - [Todo](#todo)
