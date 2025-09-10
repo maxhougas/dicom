@@ -179,14 +179,14 @@ int dooutput(char *outfname, m_format format, dcmelarr *meta, dcmelarr *body)
   fprintf(outfile, "   \"tag\": %d,\n", el->tag);
   fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
   fprintf(outfile, "   \"length\": %d,\n", el->length);
-  fprintf(outfile, "   \"value\": \"");
+  fprintf(outfile, "   \"value\": [");
    for(j = 0; j < el->length; j++)
    {
-    fprintf(outfile, "%02x", el->data[j]);
+    fprintf(outfile, "%d", el->data[j]);
     if(j < el->length - 1)
-     fprintf(outfile, " ");
+     fprintf(outfile, ",");
     else
-     fprintf(outfile,"\"\n");
+     fprintf(outfile,"]\n");
    }
   fprintf(outfile, "  }");
    if(i < meta->p - 1)
@@ -204,14 +204,14 @@ int dooutput(char *outfname, m_format format, dcmelarr *meta, dcmelarr *body)
   fprintf(outfile, "   \"tag\": %d,\n", el->tag);
   fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
   fprintf(outfile, "   \"length\": %d,\n", el->length);
-  fprintf(outfile, "   \"value\": \"");
+  fprintf(outfile, "   \"value\": ]");
    for(j = 0; j < el->length; j++)
    {
-    fprintf(outfile, "%02x", el->data[j]);
+    fprintf(outfile, "%d", el->data[j]);
     if(j < el->length - 1)
-     fprintf(outfile, " ");
+     fprintf(outfile, ",");
     else
-     fprintf(outfile,"\"\n");
+     fprintf(outfile,"]\n");
    }
   fprintf(outfile, "  }");
    if(i < body->p - 1)
