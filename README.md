@@ -18,6 +18,7 @@ DICOM parser in C
   - [x] YAML
 - [x] Support stdin and stdout
 - [x] Fix CLI arg processing
+- [ ] Tag -> English dictionary
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
