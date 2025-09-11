@@ -4,7 +4,7 @@
 DICOM parser in C
 - More than half of the code (by lines) is procedurally generated!
 
-[toc](#table-of-contents)
+###### [Go to ToC](#table-of-contents)
 
 ## Todo
 ### Basic functionality
@@ -62,21 +62,25 @@ DICOM parser in C
 ```
 - Example DICOMs can be found at [3dicomviewer](https://3dicomviewer.com/dicom-library)
 
-###### [Go to Top](#top) [Go to ToC](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
 
 ## Description
 - This program assumes 8-bit bytes
 
-###### [Go to Top](#top) [Go to ToC](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
 
 ## Building
 
-###### [Go to Top](#top) [Go to ToC](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
 
 ### Linux
 - Makefile assumes you have access to BASH--shell expansion is used excessively
 
-###### [Go to Top](#top) [Go to ToC](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
 
 ### Windows
 - Currently Makefile assumes access to GCC.
@@ -89,4 +93,5 @@ DICOM parser in C
   - constant byte4 array SQTAGS
   - constant int NSQTAGS
 
-###### [Go to Top](#top) [Go to ToC](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
