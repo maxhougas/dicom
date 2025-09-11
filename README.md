@@ -45,6 +45,21 @@ DICOM parser in C
 - [Building](#building)
 
 ## Usage
+```
+-h, --help    : this
+-v, --version : version info (build date)
+-c, --csv     : output in CSV format (default)
+    --CSV
+-f, --file    : file to process stdin is default
+    --input
+-j, --json    : output in JSON format
+    --JSON
+-l, --log     : logfile (append); some errors are printed to stderr anyway
+                default is stderr
+-o, --output  : file to write to (kablam!) stdout is default
+-y, --yaml    : output in YAML format
+    --YAML
+```
 - Example DICOMs can be found at [3dicomviewer](https://3dicomviewer.com/dicom-library)
 
 [top](#top) [toc](#table-of-contents)

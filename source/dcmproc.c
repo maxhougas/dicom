@@ -335,7 +335,7 @@ int doflagstuff(void **pchart, int argc, char **argv)
   printf("    --input\n");
   printf("-j, --json    : output in JSON format\n");
   printf("    --JSON\n");
-  printf("-l, --log     : logfile (kablam!); some errors are printed to stderr anyway");
+  printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
   printf("                default is stderr");
   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
   printf("-y, --yaml    : output in YAML format\n");
