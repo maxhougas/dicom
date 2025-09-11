@@ -391,39 +391,45 @@ int parsefile(int argc, char **argv)
  FILE* dicom = strcmp("-",infname) ? fopen(infname, "r") : stdin;
  if(dicom == NULL) 
  {
-  fprintf(errfile, " ERROR 2: failed to open file %s\n", infname);
+  fprintf(errfile, " ERROR 2: failed to open input file %s\n", infname);
+  fclose(errfile);
   return 2;
  }
 
- dcmbuff *onebuff;
- dcmbuff_loaddicom(&onebuff, dicom);
- if(fclose(dicom))
-  fprintf(errfile, " ERROR 3: failed to close file %s. Continuing\n", infname);
+ dcmbuff *buff;
+ dcmbuff_loaddicom(&buff, dicom);
+ int err = dicom == stdin ? 0 : fclose(dicom);
+ if(err)
+  fprintf(errfile, " ERROR 3: failed to close input file %s. Continuing\n", infname);
 
  dcmelarr *metaarr;
  tsmode *mode;
- if(procfilemeta(&metaarr, &mode, onebuff)) 
+ if(procfilemeta(&metaarr, &mode, buff)) 
  {
   fprintf(errfile, " ERROR 4: failed to process file metadata elements\n");
+  if(errfile != stderr) fclose(errfile);
   return 4;
  }
 
  dcmelarr *bodyarr;
- if(procfilebody(&bodyarr, *mode, onebuff))
+ if(procfilebody(&bodyarr, *mode, buff))
  {
   fprintf(errfile, " ERROR 5: failed to process file body elements\n");
+  if(errfile != stderr) fclose(errfile);
   return 5;
  }
 
  if(dooutput(outfname, format, metaarr, bodyarr))
  {
   fprintf(errfile, " ERROR 6: failed to write to file %s\n", outfname);
+  if(errfile != stderr) fclose(errfile);
   return 6;
  }
 
  time_t end = time(&end);
  fprintf(errfile, "%ld  : %010ld             : Operations completed successfully\n", end, now-end);
- if(fclose(errfile)) {perror("7:parsefile; continuing");
+ err = errfile == stderr ? 0 : fclose(stderr);
+ if(err) {perror("7:parsefile; continuing");
 
  return 0;
 }
