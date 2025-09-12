@@ -50,8 +50,8 @@ source/thetable.c: tmp/thetable
 	echo 'const int NTHETABLE = (sizeof(ALLTAGS)/sizeof(byte4));' >> source/thetable.c
 
 clean:
-	echo 'Cleaning'
-	rm dcmproc tmp/part6table.htm tmp/thetable source/sqtags.c source/thetable.c
+	echo 'Cleaning, but not removing tmp/part6table.htm'
+	rm dcmproc tmp/thetable source/sqtags.c source/thetable.c
 
 clean-win:
 	echo 'WINDOWS: cleaning'
