@@ -13,8 +13,8 @@
 #include "dcmelement.c"
 #include "dcmendian.c"
 #include "dcmezbuff.c"
+#include "dcmoutput.c"
 #include "dcmspecialtag.c"
-#include "thetable.c"
 
 #define FNAMEL 255
 
@@ -119,10 +119,9 @@ int procfilemeta(dcmelarr **arr, tsmode **filemode, dcmbuff *source)
 {
  if(arr == NULL || filemode == NULL) {perror("1:procfilemeta"); return 1;}
 
- dcmel *el;
-
  if(dcmelement_mkarr(arr)) {perror("2:procfilemeta"); return 2;}
 
+ dcmel *el;
  if(getputel(&el, *arr, source, FILEMETATS)) {perror("3:procfilemeta"); return 3;}
 
  byte4 datanumber;
@@ -158,144 +157,6 @@ int procfilebody(dcmelarr **arr, tsmode filemode, dcmbuff *source)
 
  while(source->p < source->l) /* this will not work with dcmsmartbuff */
   if(getputel(&el, *arr, source, filemode)) {perror("3:procfilebody"); return 3;}
-
- return 0;
-}
-
-int dooutput(char *outfname, m_format format, dcmelarr *meta, dcmelarr *body)
-{
- int i,j;
- dcmel *el;
- FILE *outfile = strcmp("-",outfname) ? fopen(outfname, "w") : stdout;
- if(outfile == NULL) {perror("1:dooutput"); return 1;}
-
- switch(format)
- {
- case f_yaml:
-  fprintf(outfile, "---\n");
-
-  fprintf(outfile, "meta: \n");
-  for(i = 0; i < meta->p; i++)
-  {
-   el = meta->els[i];
-  fprintf(outfile, "- tag: 0x%08X\n", el->tag);
-  fprintf(outfile, "  vr: %c%c\n", el->vr[0],el->vr[1]);
-  fprintf(outfile, "  length: 0x%08X\n", el->length);
-  fprintf(outfile, "  value: [ ");
-   for(j = 0; j < el->length; j++)
-   {
-    fprintf(outfile, "0x%02X", j);
-    if(j < el->length -1)
-     fprintf(outfile,", ");
-    else
-     fprintf(outfile," ]\n"); 
-   }
-  }
-
-  fprintf(outfile, "body: \n");
-  for(i = 0; i < meta->p; i++)
-  {
-   el = body->els[i];
-  fprintf(outfile, "- tag: 0x%08X\n", el->tag);
-  fprintf(outfile, "  vr: %c%c\n", el->vr[0],el->vr[1]);
-  fprintf(outfile, "  length: 0x%08X\n", el->length);
-  fprintf(outfile, "  value: [ ");
-   for(j = 0; j < el->length; j++)
-   {
-    fprintf(outfile, "0x%02X", j);
-    if(j < el->length -1)
-     fprintf(outfile,", ");
-    else
-     fprintf(outfile," ]\n"); 
-   }
-  }
-
- break;
- case f_json:
-  fprintf(outfile, "{\n");
-
-  fprintf(outfile, " \"meta\": [\n");
-  for(i = 0; i < meta->p; i++)
-  {
-   el = meta->els[i];
-  fprintf(outfile, "  {\n");
-  fprintf(outfile, "   \"tag\": %d,\n", el->tag);
-  fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
-  fprintf(outfile, "   \"length\": %d,\n", el->length);
-  fprintf(outfile, "   \"value\": [");
-   for(j = 0; j < el->length; j++)
-   {
-    fprintf(outfile, "%d", el->data[j]);
-    if(j < el->length - 1)
-     fprintf(outfile, ",");
-    else
-     fprintf(outfile,"]\n");
-   }
-  fprintf(outfile, "  }");
-   if(i < meta->p - 1)
-    fprintf(outfile, ",\n");
-   else
-    fprintf(outfile, "\n");
-  }
-  fprintf(outfile, " ],\n");
-
-  fprintf(outfile, " \"body\": [\n");
-  for(i = 0; i < body->p; i++)
-  {
-   el = body->els[i];
-  fprintf(outfile, "  {\n");
-  fprintf(outfile, "   \"tag\": %d,\n", el->tag);
-  fprintf(outfile, "   \"vr\": \"%c%c\",\n", el->vr[0], el->vr[1]);
-  fprintf(outfile, "   \"length\": %d,\n", el->length);
-  fprintf(outfile, "   \"value\": ]");
-   for(j = 0; j < el->length; j++)
-   {
-    fprintf(outfile, "%d", el->data[j]);
-    if(j < el->length - 1)
-     fprintf(outfile, ",");
-    else
-     fprintf(outfile,"]\n");
-   }
-  fprintf(outfile, "  }");
-   if(i < body->p - 1)
-    fprintf(outfile, ",\n");
-   else
-    fprintf(outfile, "\n");
-  }
-  fprintf(outfile, " ]\n");
- 
-  fprintf(outfile, "}");
-
- break;
-
- case f_csv:
- default:
-  fprintf(outfile, "***METASTART***\n");
-
-  for(i = 0; i < meta->p; i++)
-  {
-   el = meta->els[i];
-   fprintf(outfile, "0x%08X,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
- 
-   for(j = 0; j < el->length; j++)
-    fprintf(outfile, "0x%02X ", el->data[j]);
-   fprintf(outfile, "\n");
-  }
-
-  fprintf(outfile, "***BODYSTART***\n");
- 
-  for(i = 0; i < body->p; i++)
-  {
-   el = body->els[i];
-   fprintf(outfile, "0x%08X,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->length);
- 
-   for(j = 0; j < el->length; j++)
-    fprintf(outfile, "0x%02X ", el->data[j]);
-   fprintf(outfile, "\n");
-  }
- } 
-
- if(fclose(outfile)) {perror("2:dooutput"); return 2;}
 
  return 0;
 }
@@ -420,7 +281,7 @@ int parsefile(int argc, char **argv)
   return 5;
  }
 
- if(dooutput(outfname, format, metaarr, bodyarr))
+ if(dcmoutput_out(outfname, format, metaarr, bodyarr))
  {
   fprintf(errfile, " ERROR 6: failed to write to file %s\n", outfname);
   if(errfile != stderr) fclose(errfile);

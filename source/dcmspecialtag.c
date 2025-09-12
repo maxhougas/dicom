@@ -58,7 +58,7 @@ int dcmspecialtag_isnovr(byte4 tag)
 }
 
 /*
- binomial search for sq tag
+ binary search for sq tag
  requires SQTAGS from sqtags.c
 */
 int dcmspecialtag_issq(byte4 tag)

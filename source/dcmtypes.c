@@ -42,6 +42,15 @@ typedef enum
  f_yaml
 } m_format;
 
+typedef enum
+{
+ c_tags,
+ c_names,
+ c_keywords,
+ c_vrs,
+ c_vms
+} m_column;
+
 typedef struct
 {
  m_vr v;
