@@ -2,7 +2,7 @@
 
 # DICOM
 DICOM parser in C
-- More than half of the code (by lines) is procedurally generated!
+- More than 99% of the code (by lines) is procedurally generated!
 
 ###### [Go to ToC](#table-of-contents)
 
@@ -19,6 +19,8 @@ DICOM parser in C
 - [x] Support stdin and stdout
 - [x] Fix CLI arg processing
 - [ ] Tag -> English dictionary
+  - [x] Make THE TABLE
+  - [ ] Search THE TABLE
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
