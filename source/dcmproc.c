@@ -14,6 +14,7 @@
 #include "dcmendian.c"
 #include "dcmezbuff.c"
 #include "dcmspecialtag.c"
+#include "thetable.c"
 
 #define FNAMEL 255
 
@@ -429,7 +430,7 @@ int parsefile(int argc, char **argv)
  time_t end = time(&end);
  fprintf(errfile, "%ld  : %010ld             : Operations completed successfully\n", end, now-end);
  err = errfile == stderr ? 0 : fclose(stderr);
- if(err) {perror("7:parsefile; continuing");
+ if(err) {perror("7:parsefile; continuing");}
 
  return 0;
 }

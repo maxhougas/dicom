@@ -37,17 +37,17 @@ tmp/thetable: tmp/part6table.htm
 source/thetable.c: tmp/thetable
 	echo 'Unrolling thetable'
 	awk -F '  ' 'BEGIN{print "#ifndef _DCMTYPES\n#include \"dcmtypes.c\"\n#endif\n\nconst byte4 ALLTAGS[] =\n{"} {print $$1","}' tmp/thetable |\
-	sed '$$s:,:;\n};:' > source/thetable.c
+	sed '$$s:,:\n};:' > source/thetable.c
 	awk -F '  ' 'BEGIN{print "\n\nconst char *ALLNAMES[] = \n{"} {print "\""$$2"\","}' tmp/thetable |\
-	sed '$$s:,:;\n};:' >> source/thetable.c
+	sed '$$s:,:\n};:' >> source/thetable.c
 	awk -F '  ' 'BEGIN{print "\n\nconst char *ALLKEYWORDS[] = \n{"} {print "\""$$3"\","}' tmp/thetable |\
-	sed '$$s:,:;\n};:' >> source/thetable.c
+	sed '$$s:,:\n};:' >> source/thetable.c
 	awk -F '  ' 'BEGIN{print "\n\nconst char *ALLVRS[] = \n{"} {print "\""$$4"\","}' tmp/thetable |\
-	sed '$$s:,:;\n};:' >> source/thetable.c
+	sed '$$s:,:\n};:' >> source/thetable.c
 	awk -F '  ' 'BEGIN{print "\n\nconst char *ALLVMS[] = \n{"} {print "\""$$5"\","}' tmp/thetable |\
-	sed '$$s:,:;\n};:' >> source/thetable.c
-	echo -e '\nconst void *THETABLE[] = {ALLTAGS, ALLNAMES, ALLKEYWORDS, ALLVRS, ALLVMS}' >> source/thetable.c
-	echo -e 'const int NTHETABLE = (sizeof(ALLVMS)/sizeof(byte4));' >> source/thetable.c
+	sed '$$s:,:\n};\n:' >> source/thetable.c
+	echo 'const void *THETABLE[] = {ALLTAGS, ALLNAMES, ALLKEYWORDS, ALLVRS, ALLVMS};' >> source/thetable.c
+	echo 'const int NTHETABLE = (sizeof(ALLVMS)/sizeof(byte4));' >> source/thetable.c
 
 clean:
 	echo 'Cleaning'
