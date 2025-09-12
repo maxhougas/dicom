@@ -20,9 +20,32 @@ source/sqtags.c: tmp/part6table.htm
 	echo 'stripping a lot of stuff akshewally'
 	sed -z 's:\n *:!!:g; s:</tr>:</tr>\n:g' tmp/part6table.htm |\
 	grep '<tr.*SQ.*</tr>' |\
-	sed 's:).*:,:; s:.*(:0x:; s:,::' |\
-	while read line; do bash -c "echo `echo $$line | sed 's:xx:{{0..9},{A..F}}{{0..9},{A..F}}:'`"; done < /dev/stdin |\
+	sed 's:).*:,:; s:,::; s:x:{{0..9},{A..F}}:g; s:.*(:0x:' |\
+	while read line; do bash -c "echo `echo $$line`"; done |\
 	sed 's:^0: 0:; s:, :,\n :g; 1s:^:#ifndef _DCMTYPES\n#include "dcmtypes.c"\n#endif\n\nconst byte4 SQTAGS[] =\n{\n:; $$s:,$$:\n};\n\nconst int NSQTAGS = (sizeof(SQTAGS)/sizeof(byte4));:' > source/sqtags.c
+
+tmp/thetable: tmp tmp/part6table.htm
+	sed -z 's:\n *:__:g' tmp/part6table.htm |\
+	grep -Po '<tbody>.*?</tbody>' |\
+	grep -Po '<tr.*?</tr>' |\
+	sed 's:<[^>]*>:___:g; s:^__*::; s: :_:g; s:\xe2\x80\x8b::g; s:&amp;:\\\\\\\&:g; s:(\|)\|'\'':\\\\\\&:g' |\
+	awk -F '___+' -v OFS='___' '{gsub(/\\*\)|,/,"",$$1); gsub(/x/,"{{0..9},{A..F}}",$$1); gsub(/\\*\(/,"0x",$$1); print $$1,$$2,$$3,$$4,$$5}' |\
+	while read line; do bash -c "echo `echo $$line`"; done |\
+	sed 's: :\n:g; s:_: :g' > tmp/thetable
+
+source/thetable.c: tmp/thetable
+	awk -F '   ' 'BEGIN{print "#ifndef _DCMTYPES\n#include \"dcmtypes.c\"\n#endif\n\nconst byte4 ALLTAGS[] =\n{"} {print " "$$1","}' tmp/thetable |\
+	sed '$$s:,:;\n};:' > source/thetable.c
+	awk -F '   ' 'BEGIN{print "\n\nconst char *ALLNAMES[] = \n{"} {print " \""$$2"\","}' tmp/thetable |\
+	sed '$$s:,:;\n};:' >> source/thetable.c
+	awk -F '   ' 'BEGIN{print "\n\nconst char *ALLKEYWORDS[] = \n{"} {print " \""$$3"\","}' tmp/thetable |\
+	sed '$$s:,:;\n};:' >> source/thetable.c
+	awk -F '   ' 'BEGIN{print "\n\nconst char *ALLVRS[] = \n{"} {print " \""$$4"\","}' tmp/thetable |\
+	sed '$$s:,:;\n};:' >> source/thetable.c
+	awk -F '   ' 'BEGIN{print "\n\nconst char *ALLVMS[] = \n{"} {print " \""$$5"\","}' tmp/thetable |\
+	sed '$$s:,:;\n};:' >> source/thetable.c
+	echo -e '\nconst void *THETABLE[] = {ALLTAGS, ALLNAMES, ALLKEYWORDS, ALLVRS, ALLVMS}' >> source/thetable.c
+	echo -e 'const int NTHETABLE = (sizeof(ALLVMS)/sizeof(byte4));' >> source/thetable.c
 
 tmp:
 	mkdir tmp
