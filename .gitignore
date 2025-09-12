@@ -3,4 +3,3 @@ dcmproc
 source/sqtags.c
 source/thetable.c
 testingstuff/*
-tmp/*

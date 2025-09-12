@@ -4,7 +4,7 @@ dcmproc: source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmpro
 	echo 'Compiling dcmproc'
 	gcc -ansi -o dcmproc source/dcmproc.c
 
-tmp/part6table.htm: tmp
+tmp/part6table.htm:
 	echo 'grabbing html from .../chtml/part6/chapter_{{7..9},6}.html'
 	bash -c 'curl -s https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_{{7..9},6}.html' > tmp/part6table.htm
 
@@ -17,14 +17,15 @@ tmp/part6table-win.htm: tmp
 	get-content part7.htm part8.htm part9.htm part6.htm | set-content tmp/part6table-win.htm
 
 source/sqtags.c: tmp/part6table.htm
-	echo 'stripping a lot of stuff akshewally'
+	echo 'Stripping everything non-SQ from part6table.htm'
 	sed -z 's:\n *:!!:g; s:</tr>:</tr>\n:g' tmp/part6table.htm |\
 	grep '<tr.*SQ.*</tr>' |\
 	sed 's:).*:,:; s:,::; s:x:{{0..9},{A..F}}:g; s:.*(:0x:' |\
 	while read line; do bash -c "echo `echo $$line`"; done |\
 	sed 's:^0: 0:; s:, :,\n :g; 1s:^:#ifndef _DCMTYPES\n#include "dcmtypes.c"\n#endif\n\nconst byte4 SQTAGS[] =\n{\n:; $$s:,$$:\n};\n\nconst int NSQTAGS = (sizeof(SQTAGS)/sizeof(byte4));:' > source/sqtags.c
 
-tmp/thetable: tmp tmp/part6table.htm
+tmp/thetable: tmp/part6table.htm
+	echo 'Stripping HTML from part6table.htm'
 	sed -z 's:\n *:__:g' tmp/part6table.htm |\
 	grep -Po '<tbody>.*?</tbody>' |\
 	grep -Po '<tr.*?</tr>' |\
@@ -34,6 +35,7 @@ tmp/thetable: tmp tmp/part6table.htm
 	sed 's: :\n:g; s:_: :g; s:   :  :g;' > tmp/thetable
 
 source/thetable.c: tmp/thetable
+	echo 'Unrolling thetable'
 	awk -F '  ' 'BEGIN{print "#ifndef _DCMTYPES\n#include \"dcmtypes.c\"\n#endif\n\nconst byte4 ALLTAGS[] =\n{"} {print $$1","}' tmp/thetable |\
 	sed '$$s:,:;\n};:' > source/thetable.c
 	awk -F '  ' 'BEGIN{print "\n\nconst char *ALLNAMES[] = \n{"} {print "\""$$2"\","}' tmp/thetable |\
@@ -47,12 +49,9 @@ source/thetable.c: tmp/thetable
 	echo -e '\nconst void *THETABLE[] = {ALLTAGS, ALLNAMES, ALLKEYWORDS, ALLVRS, ALLVMS}' >> source/thetable.c
 	echo -e 'const int NTHETABLE = (sizeof(ALLVMS)/sizeof(byte4));' >> source/thetable.c
 
-tmp:
-	mkdir tmp
-
 clean:
-	echo 'cleaning'
-	rm dcmproc tmp/part6table.htm source/sqtags.c
+	echo 'Cleaning'
+	rm dcmproc tmp/part6table.htm tmp/thetable source/sqtags.c source/thetable.c
 
 clean-win:
 	echo 'WINDOWS: cleaning'
