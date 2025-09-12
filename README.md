@@ -29,7 +29,7 @@ DICOM parser in C
   - [x] dcmspecialtag
   - [x] dcmtypes
   - [ ] logging
-  - [ ] output
+  - [x] dcmoutput
 - [x] Pull pulltable.sh functionality into Makefile
 ### Meta stuff
 - [x] Create develop branch
@@ -74,6 +74,9 @@ DICOM parser in C
 ###### [Go to ToC](#table-of-contents)
 
 ## Building
+  - Have make
+  - Run `make`
+  - Building tmp/part6table.htm will require interwebs
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
