@@ -13,6 +13,8 @@
 #include "dcmtypes.c"
 #endif
 
+#define _DCMELEMENT 1
+
 #define dcmelement_ARRDEFAULTL 1024
 #define dcmelement_ARRTOADD dcmelement_ARRDEFAULTL
 
@@ -41,6 +43,7 @@ typedef struct
 int dcmeldel(dcmel *element)
 {
  free(element->data);
+ free(element->rawmeta);
  free(element);
  return 0;
 }

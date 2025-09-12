@@ -1,6 +1,6 @@
 all: dcmproc source/sqtags.c
 
-dcmproc: source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmproc.c source/dcmtypes.c source/dcmspecialtag.c source/hougasargs.c
+dcmproc: source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmproc.c source/dcmtypes.c source/dcmoutput.c source/dcmspecialtag.c source/hougasargs.c
 	echo 'Compiling dcmproc'
 	gcc -ansi -o dcmproc source/dcmproc.c
 
@@ -47,7 +47,7 @@ source/thetable.c: tmp/thetable
 	awk -F '  ' 'BEGIN{print "\n\nconst char *ALLVMS[] = \n{"} {print "\""$$5"\","}' tmp/thetable |\
 	sed '$$s:,:\n};\n:' >> source/thetable.c
 	echo 'const void *THETABLE[] = {ALLTAGS, ALLNAMES, ALLKEYWORDS, ALLVRS, ALLVMS};' >> source/thetable.c
-	echo 'const int NTHETABLE = (sizeof(ALLVMS)/sizeof(byte4));' >> source/thetable.c
+	echo 'const int NTHETABLE = (sizeof(ALLTAGS)/sizeof(byte4));' >> source/thetable.c
 
 clean:
 	echo 'Cleaning'
