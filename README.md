@@ -1,7 +1,7 @@
 <a top="top"/>
 
 # DICOM
-DICOM parser in C
+DICOM parser in ANSI compliant C
 - More than 99% of the code (by lines) is procedurally generated!
 
 ###### [Go to ToC](#table-of-contents)
