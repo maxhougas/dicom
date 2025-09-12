@@ -2,9 +2,9 @@
 
 # DICOM
 DICOM parser in C
--More than half of the code (by lines) is procedurally generated!
+- More than 99% of the code (by lines) is procedurally generated!
 
-[toc](#table-of-contents)
+###### [Go to ToC](#table-of-contents)
 
 ## Todo
 ### Basic functionality
@@ -19,6 +19,8 @@ DICOM parser in C
 - [x] Support stdin and stdout
 - [x] Fix CLI arg processing
 - [ ] Tag -> English dictionary
+  - [x] Make THE TABLE
+  - [ ] Search THE TABLE
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
@@ -45,23 +47,42 @@ DICOM parser in C
 - [Building](#building)
 
 ## Usage
+```
+-h, --help    : this
+-v, --version : version info (build date)
+-c, --csv     : output in CSV format (default)
+    --CSV
+-f, --file    : file to process stdin is default
+    --input
+-j, --json    : output in JSON format
+    --JSON
+-l, --log     : logfile (append); some errors are printed to stderr anyway
+                default is stderr
+-o, --output  : file to write to (kablam!) stdout is default
+-y, --yaml    : output in YAML format
+    --YAML
+```
 - Example DICOMs can be found at [3dicomviewer](https://3dicomviewer.com/dicom-library)
 
-[top](#top) [toc](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
 
 ## Description
 - This program assumes 8-bit bytes
 
-[top](#top) [toc](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
 
 ## Building
 
-[top](#top) [toc](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
 
 ### Linux
 - Makefile assumes you have access to BASH--shell expansion is used excessively
 
-[top](#top) [toc](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
 
 ### Windows
 - Currently Makefile assumes access to GCC.
@@ -74,4 +95,5 @@ DICOM parser in C
   - constant byte4 array SQTAGS
   - constant int NSQTAGS
 
-[top](#top) [toc](#table-of-contents)
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
