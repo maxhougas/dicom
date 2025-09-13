@@ -230,24 +230,26 @@ int doflagstuff(void **pchart, int argc, char **argv)
 
 int parsefile(int argc, char **argv)
 {
+ time_t now; time(&now);
+
  void *chart;
  doflagstuff(&chart, argc, argv);
 
  char* errfname = hougasargs_flagvalue(chart, 5);
  FILE* errfile = strcmp("-",errfname) ? fopen(errfname, "a") : stderr;
  if(errfile == NULL) {perror("1:parsefile"); return 1;}
- time_t now = time(&now);
- fprintf(errfile,"%ld  : ", now);
+
+ fprintf(errfile,"%011ld  : ", now);
  struct tm *snow = gmtime(&now);
  int month = snow->tm_mon + 1;
  int year = snow->tm_year + 1900;
  fprintf(errfile,"%04d_%02d_%02d %02d:%02d:%02d Z  : Log file opened\n", year, month, snow->tm_mday, snow->tm_hour, snow->tm_min, snow->tm_sec);
 
  char* infname = hougasargs_flagvalue(chart, 3);
- m_format format = hougasargs_flagcount(chart, 2) ? f_csv :
+ m_format format = hougasargs_flagcount(chart, 2) ? f_csv  :
                    hougasargs_flagcount(chart, 4) ? f_json :
                    hougasargs_flagcount(chart, 7) ? f_yaml :
-                                                    f_csv;
+                                                    f_csv  ;
  char* outfname = hougasargs_flagvalue(chart, 6);
 
  FILE* dicom = strcmp("-",infname) ? fopen(infname, "r") : stdin;
@@ -288,9 +290,18 @@ int parsefile(int argc, char **argv)
   return 6;
  }
 
- time_t end = time(&end);
- fprintf(errfile, "%ld  : %010ld             : Operations completed successfully\n", end, now-end);
- err = errfile == stderr ? 0 : fclose(stderr);
+ clock_t cputime = clock();
+ time(&now);
+ int cpusec = cputime/CLOCKS_PER_SEC;
+ int subsecs = cputime-cpusec;
+                        /*12345678912345678*/
+ char subsecstring[18] = "                \0";
+ sprintf(subsecstring,"%-16lu",subsecs+CLOCKS_PER_SEC);
+ subsecstring[strlen(subsecstring)] = ' ';
+ fprintf(errfile, "%011ld  : %03u.%s   : Operations completed successfully\n", now, cpusec, &subsecstring[1]);
+ 
+
+ err = errfile == stderr ? 0 : fclose(errfile);
  if(err) {perror("7:parsefile; continuing");}
 
  return 0;
