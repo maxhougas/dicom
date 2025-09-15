@@ -37,8 +37,8 @@
 
 typedef struct
 {
- int l;
- int p;
+ unsigned int l;
+ unsigned int p;
  byte1 *data;
 } dcmbuff;
 
@@ -79,7 +79,7 @@ int dcmbuff_peek(byte1 **current, dcmbuff *buff, int numchars)
 int dcmezbuff_filetoobig(FILE *dicom)
 {
  if(fseek(dicom, 0, SEEK_END)) {perror("1:dcmbuff_filetoobig"); return 1;}
- long int size = ftell(dicom);
+ unsigned long int size = ftell(dicom);
  if(size == -1L) {perror("2:dcmbuff_filetoobig"); return 2;}
  if(size > dcmezbuff_DICOMSIZEMAX) {perror("3:dcmbuff_filetoobig"); return 3;}
 
@@ -101,7 +101,7 @@ int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
  if(pbuff == NULL || dicom == NULL) {perror("1:dcmbuff_loaddicom"); return 1;}
 
  byte1 *data;
- int nread;
+ unsigned int nread;
 
  if(dicom == stdin)
  {

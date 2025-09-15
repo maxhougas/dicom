@@ -9,6 +9,10 @@
 #include "dcmtypes.c"
 #endif
 
+#define _DCMSPECIALTAG 1
+
+#define dcmspecialtag_ischildable(el) ((el) != NULL && ((el)->tag == dcmspecialtag_ITEM || dcmspecialtag_issq((el)->vr,(el)->tag)))
+
 const int dcmspecialtag_ITEM = 0xFFFEE000;
 const int dcmspecialtag_ITEMDELIM = 0xFFFEE00D;
 const int dcmspecialtag_SEQUENCEDELIM = 0xFFFEE0DD;
@@ -61,8 +65,10 @@ int dcmspecialtag_isnovr(byte4 tag)
  binary search for sq tag
  requires SQTAGS from sqtags.c
 */
-int dcmspecialtag_issq(byte4 tag)
+int dcmspecialtag_issq(byte1 *vr, byte4 tag)
 {
+ if(!strncmp("SQ",vr,2)) return 0; /* vr is SQ */
+
  int low = 0, high = NSQTAGS-1, mid;
  while((mid = (high + low)/2) != low)
  {
@@ -75,35 +81,32 @@ int dcmspecialtag_issq(byte4 tag)
  return 0;
 }
 
-int dcmspecialtag_tsdecode(tsmode **mode, byte1* tsuid, int l)
+int dcmspecialtag_tsdecode(tsmode *mode, byte1* tsuid, int l)
 {
- if(mode == NULL) {perror("1:dcmspecialtag_tsdecode"); return 1;}
-
- *mode = (tsmode*)malloc(sizeof(tsmode));
- if(*mode == NULL) {perror("2:dcmspecialtag_tsdecode"); return 2;}
+ if(mode == NULL) return perror("1:dcmspecialtag_tsdecode"), 1;
 
  if(l == 18)
  {
-  (*mode)->v = v_implicit;
-  (*mode)->e = e_little;
+  mode->v = v_implicit;
+  mode->e = e_little;
   return 0;
  }
 
  byte1 important = tsuid[18];
  if(important == '1')
  {
-  (*mode)->v = v_explicit;
-  (*mode)->e = e_little;
+  mode->v = v_explicit;
+  mode->e = e_little;
  } 
  else if(important == '2')
  {
-  (*mode)->v = v_explicit;
-  (*mode)->e = e_big;
+  mode->v = v_explicit;
+  mode->e = e_big;
  }
  else /* dicom.nema.org says this is default :) */
  {
-  (*mode)->v = v_implicit;
-  (*mode)->e = e_little;
+  mode->v = v_implicit;
+  mode->e = e_little;
  }
 
  return 0;
