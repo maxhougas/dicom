@@ -11,7 +11,7 @@ DICOM parser in ANSI compliant C
 - [x] Create functionality to pull sqs from dicom.nema.org
 - [ ] Test issq functionality
 - [x] Add single-pass functionality for tag-parsing
-- [ ] Add second-pass functionality for tree node hanging
+- [x] Add second-pass functionality for tree node hanging
 - [x] Add functinality to dump data
   - [x] CSV
   - [x] JSON
@@ -38,6 +38,7 @@ DICOM parser in ANSI compliant C
   - [x] Decide whether to proceed with byte1 byte2 byte4 or use char short int (going with bytex)
   - [x] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
 - [x] Enable logging to file
+- [ ] Clean up dcmoutput.c redundant code
 
 ## Table of Contents
 - [Todo](#todo)
