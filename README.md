@@ -63,6 +63,8 @@ DICOM parser in ANSI compliant C
     --YAML
 ```
 - Example DICOMs can be found at [3dicomviewer](https://3dicomviewer.com/dicom-library)
+- Better examples can be found at [SlicerRtData](https://github.com/SlicerRt/SlicerRtData)
+  - eclipse-8.1.20-phantom-breast/Original/RI.1.2.246.352.71.3.2088656855.2377794.20110920152340.dcm was used in testing
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
