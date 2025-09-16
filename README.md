@@ -60,6 +60,8 @@ DICOM parser in ANSI compliant C
 -l, --log     : logfile (append); some errors are printed to stderr anyway
                 default is stderr
 -o, --output  : file to write to (kablam!) stdout is default
+-r, --recurse : engage recursive mode; hang children
+    --tree
 -y, --yaml    : output in YAML format
     --YAML
 ```
