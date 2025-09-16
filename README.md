@@ -9,7 +9,7 @@ DICOM parser in ANSI compliant C
 ## Todo
 ### Basic functionality
 - [x] Create functionality to pull sqs from dicom.nema.org
-- [ ] Test issq functionality
+- [x] Test issq functionality
 - [x] Add single-pass functionality for tag-parsing
 - [x] Add second-pass functionality for tree node hanging
 - [x] Add functinality to dump data
