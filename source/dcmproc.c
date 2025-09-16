@@ -203,7 +203,7 @@ void doflagstuff(void **pchart, int argc, char **argv)
   printf("-j, --json    : output in JSON format\n");
   printf("    --JSON\n");
   printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
-  printf("                default is stderr");
+  printf("                default is stderr\n");
   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
   printf("-r, --recurse : engage recurseive mode; hang children\n");
   printf("    --tree\n");
