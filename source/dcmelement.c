@@ -27,7 +27,7 @@
 
  buffnum pos and datastop are depricated asof 20250908
 */
-typedef struct
+typedef struct dcmel
 {
  byte4 tag;
  byte1 vr[2];
@@ -35,6 +35,8 @@ typedef struct
  byte4 length;
  byte1* rawmeta;
  byte1* data;
+ struct dcmel** children;
+ byte4 nchildren;
 } dcmel;
 
 /*
@@ -42,9 +44,12 @@ typedef struct
 */
 int dcmeldel(dcmel *element)
 {
+ if(element == NULL) return 0;
+
  free(element->data);
  free(element->rawmeta);
  free(element);
+
  return 0;
 }
 
@@ -62,30 +67,49 @@ typedef struct
 */
 int dcmelement_mkarr(dcmelarr **parr)
 {
- if(parr == NULL) {perror("1:dcmelement_mkarr"); return 1;}
+ if(parr == NULL) return perror("1:dcmelement_mkarr"), 1;
 
  *parr = malloc(sizeof(dcmelarr));
- dcmelarr *arr = *parr;
- dcmel **els = (dcmel**)malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
- if(arr == NULL || els == NULL) {perror("2:dcmelement_mkarr"); return 2;}
+ if(*parr == NULL) return perror("2:dcmelement_mkarr"), 2;
 
- arr->els = els;
- arr->l = dcmelement_ARRDEFAULTL;
- arr->p = 0;
+ (*parr)->els = (dcmel**)malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
+ if((*parr)->els == NULL) return perror("3:dcmelement_mkarr"), 3;
+
+ (*parr)->l = dcmelement_ARRDEFAULTL;
+ (*parr)->p = 0;
+
+ return 0;
+}
+
+/*
+ free(dcmelarr) is bad
+*/
+int dcmelement_delarr(dcmelarr *arr)
+{
+ if(arr == NULL || arr->els == NULL) return perror("1:dcmelement_delarr"), 1;
+
+ int i;
+
+ for(i = 0; i < arr->p; i++)
+ {
+  dcmeldel(arr->els[i]);
+ }
+
+ free(arr->els);
+ free(arr);
 
  return 0;
 }
 
 int dcmelement_addel(dcmelarr *arr, dcmel *el)
 {
- if(arr == NULL || el == NULL) {perror("1:dcmelement_addel"); return 1;}
+ if(arr == NULL || el == NULL) return perror("1:dcmelement_addel"), 1;
 
- if(arr->p == arr->l)
+ if(arr->p == arr->l) /* expand buffer */
  {
-  void *newmem = realloc(arr->els, sizeof(void*)*(arr->l + dcmelement_ARRTOADD));
-  if(newmem == NULL) {perror("2:dcmelement_addel"); return 2;}
+  arr->els = realloc(arr->els, sizeof(dcmel*)*(arr->l + dcmelement_ARRTOADD));
+  if(arr->els == NULL) return perror("2:dcmelement_addel"), 2;
 
-  arr->els = (dcmel**)newmem;
   arr->l += dcmelement_ARRTOADD;
  }
   

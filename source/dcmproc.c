@@ -15,6 +15,7 @@
 #include "dcmezbuff.c"
 #include "dcmoutput.c"
 #include "dcmspecialtag.c"
+#include "dcmtree.c"
 
 #define FNAMEL 255
 
@@ -40,7 +41,7 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
 
  if(dcmspecialtag_isnovr(dest->tag) || mode.v == v_implicit)
  {
-  memcpy(dest->vr,"xx",2);
+  memset(dest->vr,'x',2);
   dest->length = ((byte4*)buff)[1];
   dest->metalength = 8;
  }
@@ -80,7 +81,7 @@ int geteldata(dcmel *dest, dcmbuff *source)
 {
  if(dest == NULL || source == NULL) {perror("1:geteldata"); return 1;}
 
- if(dcmspecialtag_issq(dest->tag) || dest->tag == dcmspecialtag_ITEM) return 0;
+ if(dcmspecialtag_ischildable(dest)) return 0;
 
  byte1 *tmp;
  if(dcmbuff_get(&tmp, source, dest->length)) {perror("2:geteldata"); return 2;}
@@ -94,20 +95,21 @@ int geteldata(dcmel *dest, dcmbuff *source)
 }
 
 /*
- grab el from buff, process, place in arr
+ grab el from source, process, place in arr
 */
-int getputel(dcmel **el, dcmelarr *arr, dcmbuff *source, tsmode mode)
+int getputel(dcmelarr *arr, dcmbuff *source, tsmode mode)
 {
- if(el == NULL || arr == NULL || source == NULL || source->data == NULL) {perror("1:getputel"); return 1;}
+ if(arr == NULL || source == NULL || source->data == NULL) return perror("1:getputel"), 1;
 
- *el = (dcmel*)malloc(sizeof(dcmel));
- if(*el == NULL) {perror("2:getputel"); return 2;}
+ dcmel *el = (dcmel*)malloc(sizeof(dcmel));
+ if(el == NULL) return perror("2:getputel"), 2;
 
- if(getelmeta(*el, source, mode)) {perror("3:getputel"); return 3;}
+ el->nchildren = 0;
+ if(getelmeta(el, source, mode)) return perror("3:getputel"), 3;
 
- if(geteldata(*el, source)) {perror("4:getputel"); return 4;}
+ if(geteldata(el, source)) return perror("4:getputel"), 4;
 
- if(dcmelement_addel(arr, *el)) {perror("5:getputel"); return 5;}
+ if(dcmelement_addel(arr, el)) return perror("5:getputel"), 5;
 
  return 0;
 }
@@ -115,31 +117,26 @@ int getputel(dcmel **el, dcmelarr *arr, dcmbuff *source, tsmode mode)
 /*
  process the dicom file metadata into dcmels -> array
 */
-int procfilemeta(dcmelarr **arr, tsmode **filemode, dcmbuff *source)
+int procfilemeta(dcmelarr *arr, tsmode *filemode, dcmbuff *source)
 {
- if(arr == NULL || filemode == NULL) {perror("1:procfilemeta"); return 1;}
+ if(arr == NULL || filemode == NULL) return perror("1:procfilemeta"), 1;
 
- if(dcmelement_mkarr(arr)) {perror("2:procfilemeta"); return 2;}
-
- dcmel *el;
- if(getputel(&el, *arr, source, FILEMETATS)) {perror("3:procfilemeta"); return 3;}
+ if(getputel(arr, source, FILEMETATS)) return perror("2:procfilemeta"), 2;
 
  byte4 datanumber;
- memcpy(&datanumber, el->data, sizeof(byte4));
+ memcpy(&datanumber, (*arr->els)->data, sizeof(byte4));
  if(!dcmendian_SYSISLITTLE)
   datanumber = dcmendian_4flip(datanumber);
  int filemetastop = source->p + datanumber;
- *filemode = NULL;
+
 
  while(source->p < filemetastop) /* this will not work with dcmsmartbuff unless the first pull is good */
  {
-  if(getputel(&el, *arr, source, FILEMETATS)) {perror("4:procfilemeta"); return 4;}
+  if(getputel(arr, source, FILEMETATS)) return perror("3:procfilemeta"), 3;
 
-  if(el->tag == dcmspecialtag_TSUID)
-   if(dcmspecialtag_tsdecode(filemode, el->data, el->length)) {perror("5:procfilemeta"); return 5;}
+  if(arr->els[arr->p-1]->tag == dcmspecialtag_TSUID)
+   if(dcmspecialtag_tsdecode(filemode, arr->els[arr->p-1]->data, arr->els[arr->p-1]->length)) return perror("4:procfilemeta"), 4;
  }
-
- if(*filemode == NULL) {perror("6:procfilemeta"); return 6;}
 
  return 0;
 }
@@ -147,21 +144,40 @@ int procfilemeta(dcmelarr **arr, tsmode **filemode, dcmbuff *source)
 /*
  process dicom file body into dcmels -> array
 */
-int procfilebody(dcmelarr **arr, tsmode filemode, dcmbuff *source)
+int procfilebody(dcmelarr *arr, tsmode filemode, dcmbuff *source)
 {
- if(arr == NULL) {perror("1:procfilebody"); return 1;}
-
- dcmel *el;
-
- if(dcmelement_mkarr(arr)) {perror("2:procfilebody"); return 2;}
+ if(arr == NULL) return perror("1:procfilebody"), 1;
 
  while(source->p < source->l) /* this will not work with dcmsmartbuff */
-  if(getputel(&el, *arr, source, filemode)) {perror("3:procfilebody"); return 3;}
+  if(getputel(arr, source, filemode)) return perror("2:procfilebody"), 2;
 
  return 0;
 }
 
-int doflagstuff(void **pchart, int argc, char **argv)
+/*
+int secondpasshang(dcmelarr *arr)
+{
+ if(arr == NULL || arr->els == NULL) return perror("1:secondpasshang"), 1;
+
+ unsigned int i;
+ for(i = 0; i < arr->p; i++)
+  if(dcmspecialtag_ischildable(arr->els[i]))
+   dcmtree_recursivehang(&arr->els[i]);
+}
+*/
+
+void formatcputime(char *str, clock_t cputime)
+{
+ unsigned int cpusec = cputime / CLOCKS_PER_SEC;
+ unsigned int subsec = cputime % CLOCKS_PER_SEC;
+                     /*0123456789012345678*/
+ char subsecstr[18] = "                 \0";
+ sprintf(subsecstr,"%-16lu",subsec + CLOCKS_PER_SEC);
+ subsecstr[strlen(subsecstr)] = ' ';
+ sprintf(str,"%03u.%s", cpusec, &subsecstr[1]);
+}
+
+void doflagstuff(void **pchart, int argc, char **argv)
 {
  char *FLAG_HELP[] = {"\0","h","help",NULL};
  char *FLAG_VERSION[] = {"\0","v","version",NULL};
@@ -170,6 +186,7 @@ int doflagstuff(void **pchart, int argc, char **argv)
  char *FLAG_JSON[] = {"\0","j","json","JSON",NULL};
  char *FLAG_LOG[] = {"\1","l","log",NULL};
  char *FLAG_OUTPUT[] = {"\1","o","output",NULL};
+ char *FLAG_RECURSE[] = {"\0","r","recurse","tree",NULL};
  char *FLAG_YAML[] = {"\0","y","yaml","YAML",NULL};
  char **VALIDFLAGS[] =
  {
@@ -180,8 +197,9 @@ int doflagstuff(void **pchart, int argc, char **argv)
 /* 04 */ FLAG_JSON,
 /* 05 */ FLAG_LOG,
 /* 06 */ FLAG_OUTPUT,
-/* 07 */ FLAG_YAML,
-  NULL
+/* 07 */ FLAG_RECURSE,
+/* 08 */ FLAG_YAML,
+ NULL
  };
 
  hougasargs_argproc(pchart, VALIDFLAGS, argc, argv);
@@ -198,8 +216,10 @@ int doflagstuff(void **pchart, int argc, char **argv)
   printf("-j, --json    : output in JSON format\n");
   printf("    --JSON\n");
   printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
-  printf("                default is stderr");
+  printf("                default is stderr\n");
   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
+  printf("-r, --recurse : engage recursive mode; hang children\n");
+  printf("    --tree\n");
   printf("-y, --yaml    : output in YAML format\n");
   printf("    --YAML\n");
   exit(0);
@@ -224,8 +244,6 @@ int doflagstuff(void **pchart, int argc, char **argv)
   fprintf(stderr,"Output file not specified: assuming stdout\n");
   hougasargs_flagvalue(chart, 6) = "-";
  }
-
- return 0;
 }
 
 int parsefile(int argc, char **argv)
@@ -237,7 +255,7 @@ int parsefile(int argc, char **argv)
 
  char* errfname = hougasargs_flagvalue(chart, 5);
  FILE* errfile = strcmp("-",errfname) ? fopen(errfname, "a") : stderr;
- if(errfile == NULL) {perror("1:parsefile"); return 1;}
+ if(errfile == NULL) return perror("1:parsefile"), 1;
 
  fprintf(errfile,"%011ld  : ", now);
  struct tm *snow = gmtime(&now);
@@ -248,9 +266,14 @@ int parsefile(int argc, char **argv)
  char* infname = hougasargs_flagvalue(chart, 3);
  m_format format = hougasargs_flagcount(chart, 2) ? f_csv  :
                    hougasargs_flagcount(chart, 4) ? f_json :
-                   hougasargs_flagcount(chart, 7) ? f_yaml :
+                   hougasargs_flagcount(chart, 8) ? f_yaml :
                                                     f_csv  ;
- char* outfname = hougasargs_flagvalue(chart, 6);
+ outmode omode =
+ {
+  format,
+  hougasargs_flagcount(chart, 7) ? 1 : 0,
+  hougasargs_flagvalue(chart, 6)
+ };
 
  FILE* dicom = strcmp("-",infname) ? fopen(infname, "r") : stdin;
  if(dicom == NULL) 
@@ -260,46 +283,66 @@ int parsefile(int argc, char **argv)
   return 2;
  }
 
- dcmbuff *buff;
- dcmbuff_loaddicom(&buff, dicom);
+ dcmbuff *buff; dcmbuff_loaddicom(&buff, dicom);
  int err = dicom == stdin ? 0 : fclose(dicom);
  if(err)
-  fprintf(errfile, " ERROR 3: failed to close input file %s. Continuing\n", infname);
+  fprintf(errfile, " ERROR 3: failed to close input file %s; continuing\n", infname);
+ clock_t inputloaded = clock();
 
- dcmelarr *metaarr;
- tsmode *mode;
- if(procfilemeta(&metaarr, &mode, buff)) 
+ dcmelarr *metaarr; dcmelement_mkarr(&metaarr);
+ tsmode mode;
+ if(procfilemeta(metaarr, &mode, buff)) 
  {
   fprintf(errfile, " ERROR 4: failed to process file metadata elements\n");
   if(errfile != stderr) fclose(errfile);
   return 4;
  }
 
- dcmelarr *bodyarr;
- if(procfilebody(&bodyarr, *mode, buff))
+ dcmelarr *bodyarr; dcmelement_mkarr(&bodyarr);
+ if(procfilebody(bodyarr, mode, buff))
  {
   fprintf(errfile, " ERROR 5: failed to process file body elements\n");
   if(errfile != stderr) fclose(errfile);
   return 5;
  }
 
- if(dcmoutput_out(outfname, format, metaarr, bodyarr))
+ dcmbuff_del(buff);
+
+ unsigned int i;
+ if(omode.r)
+  for(i = 0; i < bodyarr->p; i++)
+   if(bodyarr->els[i] != NULL)
+    dcmtree_recursivehang(&bodyarr->els[i]);
+ clock_t fileprocessed = clock();
+
+ if(dcmoutput_out(omode, metaarr, bodyarr))
  {
-  fprintf(errfile, " ERROR 6: failed to write to file %s\n", outfname);
+  fprintf(errfile, " ERROR 6: failed to write to file %s\n", omode.outfname);
   if(errfile != stderr) fclose(errfile);
   return 6;
  }
+ clock_t outputsent = clock();
+
+ if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 7: failed to free metadata array; continuing");
+ if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 8: failed to free body array; continuing");
+ clock_t memoryreleased = clock();
+
 
  clock_t cputime = clock();
  time(&now);
- int cpusec = cputime/CLOCKS_PER_SEC;
- int subsecs = cputime-cpusec;
-                        /*12345678912345678*/
- char subsecstring[18] = "                \0";
- sprintf(subsecstring,"%-16lu",subsecs+CLOCKS_PER_SEC);
- subsecstring[strlen(subsecstring)] = ' ';
- fprintf(errfile, "%011ld  : %03u.%s   : Operations completed successfully\n", now, cpusec, &subsecstring[1]);
- 
+ char cputimestr[20];
+
+ formatcputime(cputimestr, inputloaded);
+ fprintf(errfile, " %s -- Input file loaded\n", cputimestr);
+ formatcputime(cputimestr, fileprocessed);
+ fprintf(errfile, " %s -- File processed\n", cputimestr);
+ formatcputime(cputimestr, outputsent);
+ fprintf(errfile, " %s -- Output written\n", cputimestr);
+ formatcputime(cputimestr, memoryreleased);
+ fprintf(errfile, " %s -- Memory released\n", cputimestr);
+
+ formatcputime(cputimestr, cputime);
+ fprintf(errfile, "%011ld  : %s   : Operations completed successfully\n", now, cputimestr);
 
  err = errfile == stderr ? 0 : fclose(errfile);
  if(err) {perror("7:parsefile; continuing");}

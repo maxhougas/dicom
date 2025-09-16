@@ -44,6 +44,12 @@ typedef enum
 
 typedef enum
 {
+ r_norecurse,
+ r_recurse
+} m_recurse;
+
+typedef enum
+{
  c_tags,
  c_names,
  c_keywords,
@@ -56,3 +62,10 @@ typedef struct
  m_vr v;
  m_endian e;
 } tsmode;
+
+typedef struct
+{
+ m_format f;
+ m_recurse r;
+ char *outfname;
+} outmode;
