@@ -229,6 +229,11 @@ void doflagstuff(void **pchart, int argc, char **argv)
   printf("Built on %s\n", __DATE__);
   exit(0);
  }
+ if(hougasargs_flagcount(chart, 2) && hougasargs_flagcount(chart, 7))
+ {
+  printf("Recursive mode not supported for CSV output.\n");
+  exit(1);
+ }
  if(hougasargs_flagvalue(chart, 3) == NULL)
  {
   fprintf(stderr,"Input file not specified; assuming stdin\n");
