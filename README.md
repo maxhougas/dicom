@@ -21,6 +21,8 @@ DICOM parser in ANSI compliant C
 - [ ] Tag -> English dictionary
   - [x] Make THE TABLE
   - [ ] Search THE TABLE
+- [ ] Add functionality for batch file processing
+- [ ] Add functionality for serach/edit
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
