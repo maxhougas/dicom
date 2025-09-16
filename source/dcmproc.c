@@ -154,6 +154,7 @@ int procfilebody(dcmelarr *arr, tsmode filemode, dcmbuff *source)
  return 0;
 }
 
+/*
 int secondpasshang(dcmelarr *arr)
 {
  if(arr == NULL || arr->els == NULL) return perror("1:secondpasshang"), 1;
@@ -162,6 +163,18 @@ int secondpasshang(dcmelarr *arr)
  for(i = 0; i < arr->p; i++)
   if(dcmspecialtag_ischildable(arr->els[i]))
    dcmtree_recursivehang(&arr->els[i]);
+}
+*/
+
+void formatcputime(char *str, clock_t cputime)
+{
+ unsigned int cpusec = cputime / CLOCKS_PER_SEC;
+ unsigned int subsec = cputime % CLOCKS_PER_SEC;
+                     /*0123456789012345678*/
+ char subsecstr[18] = "                 \0";
+ sprintf(subsecstr,"%-16lu",subsec + CLOCKS_PER_SEC);
+ subsecstr[strlen(subsecstr)] = ' ';
+ sprintf(str,"%03u.%s", cpusec, &subsecstr[1]);
 }
 
 void doflagstuff(void **pchart, int argc, char **argv)
@@ -205,7 +218,7 @@ void doflagstuff(void **pchart, int argc, char **argv)
   printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
   printf("                default is stderr\n");
   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
-  printf("-r, --recurse : engage recurseive mode; hang children\n");
+  printf("-r, --recurse : engage recursive mode; hang children\n");
   printf("    --tree\n");
   printf("-y, --yaml    : output in YAML format\n");
   printf("    --YAML\n");
@@ -242,7 +255,7 @@ int parsefile(int argc, char **argv)
 
  char* errfname = hougasargs_flagvalue(chart, 5);
  FILE* errfile = strcmp("-",errfname) ? fopen(errfname, "a") : stderr;
- if(errfile == NULL) {perror("1:parsefile"); return 1;}
+ if(errfile == NULL) return perror("1:parsefile"), 1;
 
  fprintf(errfile,"%011ld  : ", now);
  struct tm *snow = gmtime(&now);
@@ -255,7 +268,12 @@ int parsefile(int argc, char **argv)
                    hougasargs_flagcount(chart, 4) ? f_json :
                    hougasargs_flagcount(chart, 8) ? f_yaml :
                                                     f_csv  ;
- char* outfname = hougasargs_flagvalue(chart, 6);
+ outmode omode =
+ {
+  format,
+  hougasargs_flagcount(chart, 7) ? 1 : 0,
+  hougasargs_flagvalue(chart, 6)
+ };
 
  FILE* dicom = strcmp("-",infname) ? fopen(infname, "r") : stdin;
  if(dicom == NULL) 
@@ -279,7 +297,6 @@ int parsefile(int argc, char **argv)
   if(errfile != stderr) fclose(errfile);
   return 4;
  }
- clock_t metaprocessed = clock();
 
  dcmelarr *bodyarr; dcmelement_mkarr(&bodyarr);
  if(procfilebody(bodyarr, mode, buff))
@@ -288,40 +305,28 @@ int parsefile(int argc, char **argv)
   if(errfile != stderr) fclose(errfile);
   return 5;
  }
- clock_t bodyprocessed = clock();
 
  dcmbuff_del(buff);
 
-/*
- if(dcmoutput_out(outfname, format, metaarr, bodyarr))
+ unsigned int i;
+ if(omode.r)
+  for(i = 0; i < bodyarr->p; i++)
+   if(bodyarr->els[i] != NULL)
+    dcmtree_recursivehang(&bodyarr->els[i]);
+ clock_t fileprocessed = clock();
+
+ if(dcmoutput_out(omode, metaarr, bodyarr))
  {
-  fprintf(errfile, " ERROR 6: failed to write to file %s\n", outfname);
+  fprintf(errfile, " ERROR 6: failed to write to file %s\n", omode.outfname);
   if(errfile != stderr) fclose(errfile);
   return 6;
  }
-*/
- secondpasshang(bodyarr);
- FILE* outfile = fopen(outfname, "w");
- unsigned int i = 66;
-
- for(i = 0; i < bodyarr->p; i++)
-  if(bodyarr->els[i] != NULL) dcmoutput_yamlrecurse(bodyarr->els[i],outfile,0);
  clock_t outputsent = clock();
 
  if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 7: failed to free metadata array; continuing");
  if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 8: failed to free body array; continuing");
  clock_t memoryreleased = clock();
 
- void formatcputime(char *str, clock_t cputime)
- {
-  unsigned int cpusec = cputime / CLOCKS_PER_SEC;
-  unsigned int subsec = cputime % CLOCKS_PER_SEC;
-                      /*0123456789012345678*/
-  char subsecstr[18] = "                 \0";
-  sprintf(subsecstr,"%-16lu",subsec + CLOCKS_PER_SEC);
-  subsecstr[strlen(subsecstr)] = ' ';
-  sprintf(str,"%03u.%s", cpusec, &subsecstr[1]);
- }
 
  clock_t cputime = clock();
  time(&now);
@@ -329,15 +334,12 @@ int parsefile(int argc, char **argv)
 
  formatcputime(cputimestr, inputloaded);
  fprintf(errfile, " %s -- Input file loaded\n", cputimestr);
- formatcputime(cputimestr, metaprocessed);
- fprintf(errfile, " %s -- Metadata processed\n", cputimestr);
- formatcputime(cputimestr, bodyprocessed);
- fprintf(errfile, " %s -- Body processed\n", cputimestr);
+ formatcputime(cputimestr, fileprocessed);
+ fprintf(errfile, " %s -- File processed\n", cputimestr);
  formatcputime(cputimestr, outputsent);
  fprintf(errfile, " %s -- Output written\n", cputimestr);
  formatcputime(cputimestr, memoryreleased);
  fprintf(errfile, " %s -- Memory released\n", cputimestr);
-
 
  formatcputime(cputimestr, cputime);
  fprintf(errfile, "%011ld  : %s   : Operations completed successfully\n", now, cputimestr);
