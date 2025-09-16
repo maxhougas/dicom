@@ -127,8 +127,8 @@ void dcmoutput_jsonel(FILE* outfile, dcmel *el)
  {
   unsigned int j;
   for(j = 0; j < el->length - 1; j++)
-   fprintf(outfile, "%d, ", el->data[j]);
-  fprintf(outfile, "%d", el->data[j]);
+   fprintf(outfile, "%u, ", el->data[j]);
+  fprintf(outfile, "%u", el->data[j]);
  }
  fprintf(outfile,"]\n");
  fprintf(outfile, "  }");
@@ -226,8 +226,8 @@ void dcmoutput_jsonrecurse(FILE *outfile, dcmel* el, unsigned int depth)
   if(el->length > 0)
   {
    for(i = 0; i < el->length - 1; i++)
-    fprintf(outfile, "%d, ", el->data[i]);
-   fprintf(outfile, "%d", el->data[i]);
+    fprintf(outfile, "%u, ", el->data[i]);
+   fprintf(outfile, "%u", el->data[i]);
   }
   fprintf(outfile, "]");
   fprintf(outfile, "\n%s  }", indent);
@@ -303,6 +303,7 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
     }
    if(body->els[i] != NULL)
     dcmoutput_jsonrecurse(outfile, body->els[i], 0);
+   fprintf(outfile, "\n ]\n}\n");
   }
   else
    dcmoutput_json(outfile, meta, body);
