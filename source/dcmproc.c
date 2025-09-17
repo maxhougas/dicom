@@ -211,7 +211,7 @@ void doflagstuff(void **pchart, int argc, char **argv)
   printf("-v, --version : version info (build date)\n");
   printf("-c, --csv     : output in CSV format (default)\n");
   printf("    --CSV\n");
-  printf("-f, --file    : file to process stdin is default\n");
+  printf("-f, --file    : file to process; stdin is default\n");
   printf("    --input\n");
   printf("-j, --json    : output in JSON format\n");
   printf("    --JSON\n");

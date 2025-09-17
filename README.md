@@ -55,7 +55,7 @@ DICOM parser in ANSI compliant C
 -v, --version : version info (build date)
 -c, --csv     : output in CSV format (default)
     --CSV
--f, --file    : file to process stdin is default
+-f, --file    : file to process; stdin is default
     --input
 -j, --json    : output in JSON format
     --JSON
