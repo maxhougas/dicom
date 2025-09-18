@@ -9,7 +9,7 @@ DICOM parser in ANSI compliant C
 ## Todo
 ### Basic functionality
 - [x] Create functionality to pull sqs from dicom.nema.org
-- [ ] Test issq functionality
+- [x] Test issq functionality
 - [x] Add single-pass functionality for tag-parsing
 - [x] Add second-pass functionality for tree node hanging
 - [x] Add functinality to dump data
@@ -21,6 +21,8 @@ DICOM parser in ANSI compliant C
 - [ ] Tag -> English dictionary
   - [x] Make THE TABLE
   - [ ] Search THE TABLE
+- [ ] Add functionality for batch file processing
+- [ ] Add functionality for serach/edit
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
@@ -53,7 +55,7 @@ DICOM parser in ANSI compliant C
 -v, --version : version info (build date)
 -c, --csv     : output in CSV format (default)
     --CSV
--f, --file    : file to process stdin is default
+-f, --file    : file to process; stdin is default
     --input
 -j, --json    : output in JSON format
     --JSON

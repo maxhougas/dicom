@@ -81,7 +81,13 @@ int geteldata(dcmel *dest, dcmbuff *source)
 {
  if(dest == NULL || source == NULL) {perror("1:geteldata"); return 1;}
 
- if(dcmspecialtag_ischildable(dest)) return 0;
+ if(dcmspecialtag_ischildable(dest))
+ {
+  dest->effectivelength = 0;
+  return 0;
+ }
+ else
+  dest->effectivelength = dest->length;
 
  byte1 *tmp;
  if(dcmbuff_get(&tmp, source, dest->length)) {perror("2:geteldata"); return 2;}
@@ -211,7 +217,7 @@ void doflagstuff(void **pchart, int argc, char **argv)
   printf("-v, --version : version info (build date)\n");
   printf("-c, --csv     : output in CSV format (default)\n");
   printf("    --CSV\n");
-  printf("-f, --file    : file to process stdin is default\n");
+  printf("-f, --file    : file to process; stdin is default\n");
   printf("    --input\n");
   printf("-j, --json    : output in JSON format\n");
   printf("    --JSON\n");
@@ -228,6 +234,11 @@ void doflagstuff(void **pchart, int argc, char **argv)
  {
   printf("Built on %s\n", __DATE__);
   exit(0);
+ }
+ if(hougasargs_flagcount(chart, 2) && hougasargs_flagcount(chart, 7))
+ {
+  printf("Recursive mode not supported for CSV output.\n");
+  exit(1);
  }
  if(hougasargs_flagvalue(chart, 3) == NULL)
  {
