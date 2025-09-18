@@ -81,7 +81,13 @@ int geteldata(dcmel *dest, dcmbuff *source)
 {
  if(dest == NULL || source == NULL) {perror("1:geteldata"); return 1;}
 
- if(dcmspecialtag_ischildable(dest)) return 0;
+ if(dcmspecialtag_ischildable(dest))
+ {
+  dest->effectivelength = 0;
+  return 0;
+ }
+ else
+  dest->effectivelength = dest->length;
 
  byte1 *tmp;
  if(dcmbuff_get(&tmp, source, dest->length)) {perror("2:geteldata"); return 2;}

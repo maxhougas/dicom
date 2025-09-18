@@ -33,6 +33,7 @@ typedef struct dcmel
  byte1 vr[2];
  byte1 metalength;
  byte4 length;
+ byte4 effectivelength;
  byte1* rawmeta;
  byte1* data;
  struct dcmel** children;
