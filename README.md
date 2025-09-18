@@ -23,10 +23,16 @@ DICOM parser in ANSI compliant C
   - [ ] Search THE TABLE
 - [ ] Add functionality for batch file processing
 - [ ] Add functionality for serach/edit
+- [ ] Smarter buffering
+  - [ ] Determine if file length tag in meta information is required
+  - [ ] Implement 2 pull buffer
+  - [ ] determine if meta length meta information is requried
+  - [ ] Implement 3 pull buffer
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
   - [ ] dcmsmartbuff
+    - [x] Back burner dcmsmartbuff
   - [x] dcmendian
   - [x] dcmspecialtag
   - [x] dcmtypes
