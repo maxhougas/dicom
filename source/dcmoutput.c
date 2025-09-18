@@ -111,7 +111,7 @@ void dcmoutput_yamlrecurse(FILE* outfile, dcmel *el, unsigned int depth)
  indent[2*depth] = 0;
  memset(indent, ' ', 2 * depth);
 
- fprintf(outfile, "%s- tag: 0x:%08X\n", indent, el->tag);
+ fprintf(outfile, "%s- tag: 0x%08X\n", indent, el->tag);
  fprintf(outfile, "%s  vr: %c%c\n", indent, el->vr[0],el->vr[1]);
  fprintf(outfile, "%s  length: 0x%08X\n", indent, el->length);
  fprintf(outfile, "%s  value: ",indent);
@@ -131,8 +131,8 @@ void dcmoutput_yamlrecurse(FILE* outfile, dcmel *el, unsigned int depth)
   if(el->effectivelength > 0)
   {
    for(i = 0; i < el->effectivelength - 1; i++)
-    fprintf(outfile, "%02X, ", el->data[i]);
-   fprintf(outfile, "%02X ", el->data[i]);
+    fprintf(outfile, "0x%02X, ", el->data[i]);
+   fprintf(outfile, "0x%02X ", el->data[i]);
   }
   fprintf(outfile, "]\n");
  }
