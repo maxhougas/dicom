@@ -160,18 +160,6 @@ int procfilebody(dcmelarr *arr, tsmode filemode, dcmbuff *source)
  return 0;
 }
 
-/*
-int secondpasshang(dcmelarr *arr)
-{
- if(arr == NULL || arr->els == NULL) return perror("1:secondpasshang"), 1;
-
- unsigned int i;
- for(i = 0; i < arr->p; i++)
-  if(dcmspecialtag_ischildable(arr->els[i]))
-   dcmtree_recursivehang(&arr->els[i]);
-}
-*/
-
 void tokenize(char ***toks, unsigned int *ntoks, char *str)
 {
  const char DELIM = ' ';
