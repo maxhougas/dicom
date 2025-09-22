@@ -63,6 +63,7 @@ DICOM parser in ANSI compliant C
 -l, --log     : logfile (append); some errors are printed to stderr anyway
                 default is stderr
 -o, --output  : file to write to (kablam!) stdout is default
+-p, --prefix  : input file prefix
 -r, --recurse : engage recursive mode; hang children
     --tree
 -y, --yaml    : output in YAML format
@@ -71,18 +72,26 @@ DICOM parser in ANSI compliant C
 - Example DICOMs can be found at [3dicomviewer](https://3dicomviewer.com/dicom-library)
 - Better examples can be found at [SlicerRtData](https://github.com/SlicerRt/SlicerRtData)
   - eclipse-8.1.20-phantom-breast/Original/RI.1.2.246.352.71.3.2088656855.2377794.20110920152340.dcm was used in testing
-- This program will read and parse dicom files representing them internally as an array of elements.
-- The element array can be "recursed" with the -r flag; childable nodes (those of VR SQ or tag 0xFFFEE000) will have their children arranged in a tree structure.
-- Elements are maintained in a way that the original file is recoverable from it's representation.
-- The representation can be written to a yaml or json format file with the -y or -j flags.
-- If the represention remains flat i.e. the -r flag is not issued, it can be written to a CSV format file.
-- Multiple DICOM files can be processed in batch by issuing a quoted, space-delimited list to the -f flag.
+- A typical run line would be `./dcmproc -f "cooldicom.dcm\nanotherdicom.dcm" -jro cool.json`
+  - This will parse the file `cooldicom.dcm`.
+  - The internal representation of `cooldicom.dcm` will be recursively processed.
+  - The file `cool.json` will be created if it does not exist or truncated if it does.
+  - A JSON representation of the data from `cooldicom.dcm` will be written to `cool.json`.
+  - The file `anotherdicom.dcm` will be parsed.
+  - The internal representation of `anotherdicom.dcm` will be recursively processed.
+  - A JSON representation of the data from `anotherdicom.dcm` will be appended to `cool.json`.
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
 
 ## Description
 - This program assumes 8-bit bytes
+- This program will read and parse dicom files representing them internally as an array of elements.
+- The element array can be "recursed" with the -r flag; childable nodes (those of VR SQ or tag 0xFFFEE000) will have their children arranged in a tree structure.
+- Elements are maintained in a way that the original file is recoverable from it's representation.
+- The representation can be written to a yaml or json format file with the -y or -j flags.
+- If the represention remains flat i.e. the -r flag is not issued, it can be written to a CSV format file.
+- Multiple DICOM files can be processed in batch by issuing a quoted, \n-delimited list to the -f flag.
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)

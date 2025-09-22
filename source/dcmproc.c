@@ -162,7 +162,7 @@ int procfilebody(dcmelarr *arr, tsmode filemode, dcmbuff *source)
 
 void tokenize(char ***toks, unsigned int *ntoks, char *str)
 {
- const char DELIM = ' ';
+ const char DELIM = '\n';
  unsigned int length = strlen(str);
  *ntoks = 0;
  *toks = (char**)malloc(sizeof(char*)*((length+1)/2));
@@ -207,6 +207,7 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
  char *FLAG_JSON[] = {"\0","j","json","JSON",NULL};
  char *FLAG_LOG[] = {"\1","l","log",NULL};
  char *FLAG_OUTPUT[] = {"\1","o","output",NULL};
+ char *FLAG_PREFIX[] = {"\1","p","prefix",NULL};
  char *FLAG_RECURSE[] = {"\0","r","recurse","tree",NULL};
  char *FLAG_YAML[] = {"\0","y","yaml","YAML",NULL};
  char **VALIDFLAGS[] =
@@ -218,8 +219,9 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
 /* 04 */ FLAG_JSON,
 /* 05 */ FLAG_LOG,
 /* 06 */ FLAG_OUTPUT,
-/* 07 */ FLAG_RECURSE,
-/* 08 */ FLAG_YAML,
+/* 07 */ FLAG_PREFIX,
+/* 08 */ FLAG_RECURSE,
+/* 09 */ FLAG_YAML,
  NULL
  };
 
@@ -238,6 +240,7 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
   printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
   printf("                default is stderr\n");
   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
+  printf("-p, --prefix  : input file prefix\n");
   printf("-r, --recurse : engage recursive mode; hang children\n");
   printf("    --tree\n");
   printf("-y, --yaml    : output in YAML format\n");
@@ -249,7 +252,7 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
   printf("Built on %s\n", __DATE__);
   exit(0);
  }
- if(chart->flagc[2] && chart->flagc[7])
+ if(chart->flagc[2] && chart->flagc[8])
  {
   printf("Recursive mode not supported for CSV output.\n");
   exit(1);
@@ -296,7 +299,7 @@ int parsefile(int argc, char **argv)
  tokenize(&infnamebatch, &ninfname, infname);
  m_format format = chart.flagc[2] ? f_csv  :
                    chart.flagc[4] ? f_json :
-                   chart.flagc[8] ? f_yaml :
+                   chart.flagc[9] ? f_yaml :
                                     f_csv  ;
  FILE *outfile = strcmp(chart.flagv[6], "-") ? fopen(chart.flagv[6], "w") : stdout;
  if(outfile == NULL)
@@ -308,7 +311,7 @@ int parsefile(int argc, char **argv)
  outmode omode =
  {
   format,
-  chart.flagc[7] ? 1 : 0,
+  chart.flagc[8] ? 1 : 0,
   outfile,
   "",
   0,
@@ -323,13 +326,18 @@ int parsefile(int argc, char **argv)
  unsigned int j;
  for(j = 0; j < ninfname; j++)
  {
-  FILE* dicom = strcmp("-",infnamebatch[j]) ? fopen(infnamebatch[j], "r") : stdin;
+  unsigned int prefixlength = strlen(chart.flagv[7]) + 1;
+  char *fullname = (char*)malloc(prefixlength + strlen(infnamebatch[j]));
+  memcpy(fullname, chart.flagv[7], prefixlength);
+  strcat(fullname, infnamebatch[j]);
+  FILE* dicom = strcmp("-", infnamebatch[j]) ? fopen(fullname, "r") : stdin;
   if(dicom == NULL) 
   {
    fprintf(errfile, " ERROR 3: failed to open input file %s\n", infnamebatch[j]);
    if(errfile != stderr) fclose(errfile);
    return 3;
   }
+  free(fullname);
 
   dcmbuff *buff; dcmbuff_loaddicom(&buff, dicom);
   if(dicom == stdin ? 0 : fclose(dicom))

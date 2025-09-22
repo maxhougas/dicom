@@ -244,5 +244,8 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
   dcmoutput_csv(omode.outfile, meta, metatag, body, bodytag);
  }
 
+ free(metatag);
+ free(bodytag);
+
  return 0;
 }
