@@ -68,4 +68,7 @@ typedef struct
  m_format f;
  m_recurse r;
  FILE *outfile;
+ char *tag;
+ unsigned int current;
+ unsigned int last;
 } outmode;

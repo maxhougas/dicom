@@ -309,9 +309,11 @@ int parsefile(int argc, char **argv)
  {
   format,
   chart.flagc[7] ? 1 : 0,
-  outfile
+  outfile,
+  "",
+  0,
+  ninfname - 1
  };
-
 
  clock_t *inputloaded    = (clock_t*)malloc(sizeof(clock_t)*ninfname);
  clock_t *fileprocessed  = (clock_t*)malloc(sizeof(clock_t)*ninfname);
@@ -360,6 +362,8 @@ int parsefile(int argc, char **argv)
      dcmtree_recursivehang(&bodyarr->els[i]);
   fileprocessed[j] = clock();
 
+  omode.tag = infnamebatch[j];
+  omode.current = j;
   if(dcmoutput_out(omode, metaarr, bodyarr))
   {
    fprintf(errfile, " ERROR 7: failed to write to file %s\n", omode.outfile);

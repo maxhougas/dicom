@@ -148,12 +148,12 @@ void dcmoutput_jsonrecurse(FILE *outfile, dcmel* el, unsigned int depth)
  free(indent);
 }
 
-int dcmoutput_csv(FILE *outfile, dcmelarr *meta, dcmelarr *body)
+int dcmoutput_csv(FILE *outfile, dcmelarr *meta, char *metatag, dcmelarr *body, char *bodytag)
 {
  int i,j;
  dcmel *el;
 
- fprintf(outfile, "***METASTART***\n");
+ fprintf(outfile, "***%s***\n", metatag);
 
  for(i = 0; i < meta->p; i++)
  {
@@ -165,7 +165,7 @@ int dcmoutput_csv(FILE *outfile, dcmelarr *meta, dcmelarr *body)
   fprintf(outfile, "\n");
  }
 
- fprintf(outfile, "***BODYSTART***\n");
+ fprintf(outfile, "***%s***\n", bodytag);
  
  for(i = 0; i < body->p; i++)
  {
@@ -182,34 +182,42 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
 {
  int i,j;
  dcmel *el;
+ unsigned int innamelength = strlen(omode.tag) + 1;
+ char *metatag = (char*)malloc(innamelength+5);
+ memcpy(metatag, omode.tag, innamelength);
+ strcat(metatag, "_meta");
+ char *bodytag = (char*)malloc(innamelength+5);
+ memcpy(bodytag, omode.tag, innamelength);
+ strcat(bodytag, "_body");
 
  switch(omode.f)
  {
  case f_yaml:
+  if(!omode.current)
+   fprintf(omode.outfile,"---\n");
   if(omode.r)
   {
-   fprintf(omode.outfile,"---\n");
-   dcmoutput_flatarrayyaml(omode.outfile, meta, "meta");
-   fprintf(omode.outfile,"body:\n");
+   dcmoutput_flatarrayyaml(omode.outfile, meta, metatag);
+   fprintf(omode.outfile,"%s:\n", bodytag);
    for(i = 0; i < body->p; i++)
     if(body->els[i] != NULL)
      dcmoutput_yamlrecurse(omode.outfile, body->els[i], 0);
-   fprintf(omode.outfile,"...\n");
   }
   else
   {
-   fprintf(omode.outfile,"---\n");
-   dcmoutput_flatarrayyaml(omode.outfile, meta, "meta");
-   dcmoutput_flatarrayyaml(omode.outfile, body, "body");
-   fprintf(omode.outfile,"...\n");
+   dcmoutput_flatarrayyaml(omode.outfile, meta, metatag);
+   dcmoutput_flatarrayyaml(omode.outfile, body, bodytag);
   }
+  if(omode.current == omode.last)
+   fprintf(omode.outfile,"...\n");
  break;
  case f_json:
+  if(!omode.current)
+   fprintf(omode.outfile, "{\n");
   if(omode.r)
   {
-   fprintf(omode.outfile, "{\n");
-   dcmoutput_flatarrayjson(omode.outfile, meta, "meta");
-   fprintf(omode.outfile, ",\n \"body\": [");
+   dcmoutput_flatarrayjson(omode.outfile, meta, metatag);
+   fprintf(omode.outfile, ",\n \"%s\": [", bodytag);
    for(i = 0; i < body->p - 1; i++)
     if(body->els[i] != NULL)
     {
@@ -218,20 +226,22 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
     }
    if(body->els[i] != NULL)
     dcmoutput_jsonrecurse(omode.outfile, body->els[i], 0);
-   fprintf(omode.outfile, "\n ]\n}\n");
+   fprintf(omode.outfile, "\n ]");
   }
   else
   {
-   fprintf(omode.outfile, "{\n");
-   dcmoutput_flatarrayjson(omode.outfile, meta, "meta");
+   dcmoutput_flatarrayjson(omode.outfile, meta, metatag);
    fprintf(omode.outfile, ",\n");
-   dcmoutput_flatarrayjson(omode.outfile, body, "body");
-   fprintf(omode.outfile, "\n}\n");
+   dcmoutput_flatarrayjson(omode.outfile, body, bodytag);
   }
+  if(omode.current != omode.last)
+   fprintf(omode.outfile, ",\n");
+  else
+   fprintf(omode.outfile, "\n}\n");
  break;
  default:
   if(omode.r) return perror("2:dcmoutput_out"), 2;
-  dcmoutput_csv(omode.outfile, meta, body);
+  dcmoutput_csv(omode.outfile, meta, metatag, body, bodytag);
  }
 
  return 0;
