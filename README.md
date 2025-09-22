@@ -21,12 +21,13 @@ DICOM parser in ANSI compliant C
 - [ ] Tag -> English dictionary
   - [x] Make THE TABLE
   - [ ] Search THE TABLE
-- [ ] Add functionality for batch file processing
+- [x] Add functionality for batch file processing
 - [ ] Add functionality for serach/edit
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
   - [ ] dcmsmartbuff
+    - [x] Back burner dcmsmartbuff
   - [x] dcmendian
   - [x] dcmspecialtag
   - [x] dcmtypes
@@ -40,7 +41,7 @@ DICOM parser in ANSI compliant C
   - [x] Decide whether to proceed with byte1 byte2 byte4 or use char short int (going with bytex)
   - [x] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
 - [x] Enable logging to file
-- [ ] Clean up dcmoutput.c redundant code
+- [x] Clean up dcmoutput.c redundant code
 
 ## Table of Contents
 - [Todo](#todo)
@@ -70,6 +71,12 @@ DICOM parser in ANSI compliant C
 - Example DICOMs can be found at [3dicomviewer](https://3dicomviewer.com/dicom-library)
 - Better examples can be found at [SlicerRtData](https://github.com/SlicerRt/SlicerRtData)
   - eclipse-8.1.20-phantom-breast/Original/RI.1.2.246.352.71.3.2088656855.2377794.20110920152340.dcm was used in testing
+- This program will read and parse dicom files representing them internally as an array of elements.
+- The element array can be "recursed" with the -r flag; childable nodes (those of VR SQ or tag 0xFFFEE000) will have their children arranged in a tree structure.
+- Elements are maintained in a way that the original file is recoverable from it's representation.
+- The representation can be written to a yaml or json format file with the -y or -j flags.
+- If the represention remains flat i.e. the -r flag is not issued, it can be written to a CSV format file.
+- Multiple DICOM files can be processed in batch by issuing a quoted, space-delimited list to the -f flag.
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)

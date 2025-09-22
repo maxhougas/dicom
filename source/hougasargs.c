@@ -1,12 +1,6 @@
-#ifndef _STDIO_H
 #include <stdio.h>
-#endif
-#ifndef _STDLIB_H
 #include <stdlib.h>
-#endif
-#ifndef _STRING_H
 #include <string.h>
-#endif
 
 #define _HOUGASARGS 1
 
@@ -14,6 +8,12 @@
 #define hougasargs_flagvalue(chart,n) (((char**)chart)[n*2])
 #define hougasargs_startswithdoubletac(str) ((str)[0]=='-'&&(str)[1]=='-')
 #define hougasargs_startswithsingletac(str) ((str)[0]=='-'&&(str)[1]!='-')
+
+typedef struct
+{
+ unsigned int *flagc;
+ char **flagv;
+} hougasargs_flagchart;
 
 /*
  list for args so they can be removed easily
@@ -30,8 +30,6 @@ typedef struct hougasargs_argnode
 */
 hougasargs_argnode *hougasargs_listanize(int argc, char **argv)
 {
- if(argc == 1) return NULL;
-
  hougasargs_argnode *first = (hougasargs_argnode*)malloc(sizeof(hougasargs_argnode));
  hougasargs_argnode *current = first;
  current->prev = NULL;
@@ -97,7 +95,7 @@ hougasargs_argnode *hougasargs_removenode(hougasargs_argnode *current)
 /*
  handle potentially multi-character single char flags
 */
-int hougasargs_singletacflag(void *flagchart, char ***validflags, hougasargs_argnode *argnode)
+int hougasargs_singletacflag(hougasargs_flagchart *flagchart, char ***validflags, hougasargs_argnode *argnode)
 {
  char *arg = argnode->arg;
 
@@ -108,7 +106,7 @@ int hougasargs_singletacflag(void *flagchart, char ***validflags, hougasargs_arg
 
   if(validflags[j] == NULL) {printf("Flag %c invalid\n",arg[i]); return 1;}
 
-  hougasargs_flagcount(flagchart,j)++;
+  flagchart->flagc[j]++;
 
   if(validflags[j][0][0] && arg[i+1] != 0) {printf("Flag %c requires arg\n",arg[i]); return 2;}
  }
@@ -116,7 +114,7 @@ int hougasargs_singletacflag(void *flagchart, char ***validflags, hougasargs_arg
  if(!validflags[j][0][0]) return 0;
  if(argnode->next == NULL) {printf("Flag %c requires arg\n",arg[i-1]); return 3;}
 
- hougasargs_flagvalue(flagchart,j) = argnode->next->arg;
+ flagchart->flagv[j] = argnode->next->arg;
  hougasargs_removenode(argnode->next);
 
  return 0;
@@ -125,7 +123,7 @@ int hougasargs_singletacflag(void *flagchart, char ***validflags, hougasargs_arg
 /*
  handle multi-character flags
 */
-int hougasargs_doubletacflag(void *flagchart, char ***validflags, hougasargs_argnode *argnode)
+int hougasargs_doubletacflag(hougasargs_flagchart *flagchart, char ***validflags, hougasargs_argnode *argnode)
 {
  char *arg = argnode->arg;
  int i,j;
@@ -137,45 +135,35 @@ int hougasargs_doubletacflag(void *flagchart, char ***validflags, hougasargs_arg
 
  if(validflags[i] == NULL) {printf("Flag %s invalid\n", arg); return 1;}
 
- hougasargs_flagcount(flagchart,i)++;
+ flagchart->flagc[i]++;
 
  if(validflags[i][0][0] == 0) return 0;
  if(argnode->next == NULL) {printf("Flag %s requires arg"); return 2;}
 
- hougasargs_flagvalue(flagchart,i) = argnode->next->arg;
+ flagchart->flagv[i] = argnode->next->arg;
  hougasargs_removenode(argnode->next);
 
  return 0;
 }
 
-/*
- hougasargs_argsproc generates a chart of commandline flags values and invocation counts
- *flagchart will be in the form of {"val",&count,"val",&count...} it will have 2*lengthof(validflags) values
- validflags must be of the form {{synonyms},{synonyms}...,NULL}
- synonyms must be of the form {takesarg,singlechar,multichar,multichar...,NULL}
- for flags that do not have a single char synonym, singlechar must be explicitly ""
- the return value is a pointer to a list of unprocessed args
-*/
-hougasargs_argnode *hougasargs_argproc(void **pflagchart, char ***validflags, int argc, char **argv)
+hougasargs_argnode *hougasargs_argproc(hougasargs_flagchart *flagchart, char ***validflags, int argc, char **argv)
 {
+ 
+ int nvalid; for(nvalid = 0; validflags[nvalid] != NULL; nvalid++);
+ flagchart->flagc = malloc(sizeof(int)*nvalid);
+ flagchart->flagv = malloc(sizeof(char*)*nvalid);
 
-
- int nvalid = 0; for(;validflags[nvalid] != NULL; nvalid++);
- *pflagchart = malloc(sizeof(void*)*nvalid*2);
- void *flagchart = *pflagchart;
  int i;
- for(i = 0; i<nvalid*2; i+=2)
+ for(i = 0; i<nvalid; i++)
  {
-  ((char**)flagchart)[i] = NULL;
-  ((int**)flagchart)[i+1] = malloc(sizeof(int));
-  *((int**)flagchart)[i+1] = 0;
+  flagchart->flagc[i] = 0;
+  flagchart->flagv[i] = NULL;
  }
 
  int endofflags;
  for(endofflags = 1; endofflags < argc && strcmp(argv[endofflags],"--"); endofflags++);
 
  hougasargs_argnode *arghead = hougasargs_listanize(endofflags, argv);
-
  hougasargs_argnode *current = arghead;
 
  while(current != NULL)
@@ -203,42 +191,3 @@ hougasargs_argnode *hougasargs_argproc(void **pflagchart, char ***validflags, in
  
  return arghead;
 }
-
-int hougasargs_testargproc(void **pflagchart, char ***validflags, int argc, char **argv)
-{
- 
- int nvalid = 0; for(;validflags[nvalid] != NULL; nvalid++);
- *pflagchart = malloc(sizeof(void*)*nvalid*2);
- void *flagchart = *pflagchart;
- int i;
- for(i = 0; i<nvalid*2; i+=2)
- {
-  ((char**)flagchart)[i] = NULL;
-  ((int**)flagchart)[i+1] = malloc(sizeof(int));
-  *((int**)flagchart)[i+1] = 0;
- }
-
- hougasargs_argnode *leftoverargs = hougasargs_argproc(flagchart, validflags, argc, argv);
-
- return 0;
-}
-/*
-int hougasargs(int argc, char** argv)
-{
- int i;
- void *chart;
- char ONE[] = {1};
- char *flags0[] = {"\1","a","along","aalong",NULL};
- char *flags1[] = {"\0","b","blong","bllong",NULL};
- char *flags2[] = {ONE,"c","clong","cloong",NULL};
- char **validflags[] = {flags0,flags1,flags2,NULL};
- int nvalid = 0; for(;validflags[nvalid] != NULL; nvalid++);
-
- hougasargs_argproc(&chart,validflags,argc,argv);
-
- for(i=0;i<nvalid;i++)
-  printf("%s %s %s %d\n",validflags[i][1],validflags[i][2],hougasargs_flagvalue(chart,i),hougasargs_flagcount(chart,i));
-
- return 0;
-}
-*/
