@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #endif
 
-#define _DCMTYPES 1
+#define DCMTYPES 1
 
 /***
  use stdint if available

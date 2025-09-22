@@ -7,7 +7,7 @@
 
 #include "thetable.c"
 
-#define _DCMTABLE 1
+#define DCMTABLE 1
 
 #define dcmthetable_TAGS "tags"
 #define dcmthetable_NAMES "names"

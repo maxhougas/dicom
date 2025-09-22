@@ -4,14 +4,14 @@
  tools for sending output
 */
 
-#ifndef _DCMTYPES
+#ifndef DCMTYPES
 #include "dcmtypes.c"
 #endif
-#ifndef _DCMELEMENT
+#ifndef DCMELEMENT
 #include "dcmelement.c"
 #endif
 
-#define _DCMOUTPUT 1
+#define DCMOUTPUT 1
 
 int dcmoutput_flatarrayyaml(FILE *outfile, dcmelarr *arr, char* label)
 {

@@ -5,11 +5,11 @@
 */
 
 #include "sqtags.c"
-#ifndef _DCMTYPES
+#ifndef DCMTYPES
 #include "dcmtypes.c"
 #endif
 
-#define _DCMSPECIALTAG 1
+#define DCMSPECIALTAG 1
 
 #define dcmspecialtag_ischildable(el) ((el) != NULL && ((el)->tag == dcmspecialtag_ITEM || dcmspecialtag_issq((el)->vr,(el)->tag)))
 

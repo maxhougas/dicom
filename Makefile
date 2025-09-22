@@ -22,7 +22,7 @@ source/sqtags.c: tmp/part6table.htm
 	grep '<tr.*SQ.*</tr>' |\
 	sed 's:).*:,:; s:,::; s:x:{{0..9},{A..F}}:g; s:.*(:0x:' |\
 	while read line; do bash -c "echo `echo $$line`"; done |\
-	sed 's:^0: 0:; s:, :,\n :g; 1s:^:#ifndef _DCMTYPES\n#include "dcmtypes.c"\n#endif\n\nconst byte4 SQTAGS[] =\n{\n:; $$s:,$$:\n};\n\nconst int NSQTAGS = (sizeof(SQTAGS)/sizeof(byte4));:' > source/sqtags.c
+	sed 's:^0: 0:; s:, :,\n :g; 1s:^:#ifndef DCMTYPES\n#include "dcmtypes.c"\n#endif\n\nconst byte4 SQTAGS[] =\n{\n:; $$s:,$$:\n};\n\nconst int NSQTAGS = (sizeof(SQTAGS)/sizeof(byte4));:' > source/sqtags.c
 
 tmp/thetable: tmp/part6table.htm
 	echo 'Stripping HTML from part6table.htm'

@@ -2,10 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define _HOUGASARGS 1
+#define HOUGASARGS 1
 
-#define hougasargs_flagcount(chart,n) (*((int**)chart)[n*2+1])
-#define hougasargs_flagvalue(chart,n) (((char**)chart)[n*2])
 #define hougasargs_startswithdoubletac(str) ((str)[0]=='-'&&(str)[1]=='-')
 #define hougasargs_startswithsingletac(str) ((str)[0]=='-'&&(str)[1]!='-')
 

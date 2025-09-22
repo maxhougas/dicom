@@ -4,17 +4,17 @@
  functions for hanging nodes
 */
 
-#ifndef _DCMTYPES
+#ifndef DCMTYPES
 #include "dcmtypes.c"
 #endif
-#ifndef _DCMELEMENT
+#ifndef DCMELEMENT
 #include "dcmelement.c"
 #endif
-#ifndef _DCMSPECIALTAG
+#ifndef DCMSPECIALTAG
 #include "dcmspecialtag.c"
 #endif
 
-#define _DCMTREE 1
+#define DCMTREE 1
 
 #define dcmtree_UNDEFINEDLENGTH 0xFFFFFFFF
 #define dcmtree_CHILDRENINITLENGTH 16 /* guessing a reasonable number of children / childable node */
