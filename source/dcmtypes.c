@@ -67,5 +67,5 @@ typedef struct
 {
  m_format f;
  m_recurse r;
- char *outfname;
+ FILE *outfile;
 } outmode;

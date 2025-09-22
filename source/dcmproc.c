@@ -172,6 +172,33 @@ int secondpasshang(dcmelarr *arr)
 }
 */
 
+void tokenize(char ***toks, unsigned int *ntoks, char *str)
+{
+ const char DELIM = ' ';
+ unsigned int length = strlen(str);
+ *ntoks = 0;
+ *toks = (char**)malloc(sizeof(char*)*((length+1)/2));
+ char *p;
+
+ if(str[0] != DELIM && str[0] != 0)
+ {
+  (*toks)[0] = str;
+  *ntoks = 1;
+ } 
+
+ for(p = str; p < &str[length]; p++)
+ {
+  if(*p == DELIM && *(p+1) != DELIM && *(p+1) != 0)
+  {
+   *p = 0;
+   (*toks)[*ntoks] = (p+1);
+   ++*ntoks;
+  }
+  else if(*p == DELIM)
+   *p = 0;
+ }
+}
+
 void formatcputime(char *str, clock_t cputime)
 {
  unsigned int cpusec = cputime / CLOCKS_PER_SEC;
@@ -183,7 +210,7 @@ void formatcputime(char *str, clock_t cputime)
  sprintf(str,"%03u.%s", cpusec, &subsecstr[1]);
 }
 
-void doflagstuff(void **pchart, int argc, char **argv)
+void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
 {
  char *FLAG_HELP[] = {"\0","h","help",NULL};
  char *FLAG_VERSION[] = {"\0","v","version",NULL};
@@ -208,10 +235,9 @@ void doflagstuff(void **pchart, int argc, char **argv)
  NULL
  };
 
- hougasargs_argproc(pchart, VALIDFLAGS, argc, argv);
- void *chart = *pchart;
+ hougasargs_argproc(chart, VALIDFLAGS, argc, argv);
 
- if(hougasargs_flagcount(chart, 0))
+ if(chart->flagc[0])
  {
   printf("-h, --help    : this\n");
   printf("-v, --version : version info (build date)\n");
@@ -230,30 +256,30 @@ void doflagstuff(void **pchart, int argc, char **argv)
   printf("    --YAML\n");
   exit(0);
  }
- if(hougasargs_flagcount(chart, 1))
+ if(chart->flagc[1])
  {
   printf("Built on %s\n", __DATE__);
   exit(0);
  }
- if(hougasargs_flagcount(chart, 2) && hougasargs_flagcount(chart, 7))
+ if(chart->flagc[2] && chart->flagc[7])
  {
   printf("Recursive mode not supported for CSV output.\n");
   exit(1);
  }
- if(hougasargs_flagvalue(chart, 3) == NULL)
+ if(chart->flagv[3] == NULL)
  {
   fprintf(stderr,"Input file not specified; assuming stdin\n");
-  hougasargs_flagvalue(chart, 3) = "-";
+  chart->flagv[3] = "-";
  }
- if(hougasargs_flagvalue(chart, 5) == NULL)
+ if(chart->flagv[5] == NULL)
  {
   fprintf(stderr,"Log file not specified; logging to stderr\n");
-  hougasargs_flagvalue(chart, 5) = "-";
+  chart->flagv[5] = "-";
  }
- if(hougasargs_flagvalue(chart, 6) == NULL)
+ if(chart->flagv[6] == NULL)
  {
   fprintf(stderr,"Output file not specified: assuming stdout\n");
-  hougasargs_flagvalue(chart, 6) = "-";
+  chart->flagv[6] = "-";
  }
 }
 
@@ -261,10 +287,10 @@ int parsefile(int argc, char **argv)
 {
  time_t now; time(&now);
 
- void *chart;
+ hougasargs_flagchart chart;
  doflagstuff(&chart, argc, argv);
 
- char* errfname = hougasargs_flagvalue(chart, 5);
+ char* errfname = chart.flagv[5];
  FILE* errfile = strcmp("-",errfname) ? fopen(errfname, "a") : stderr;
  if(errfile == NULL) return perror("1:parsefile"), 1;
 
@@ -274,89 +300,111 @@ int parsefile(int argc, char **argv)
  int year = snow->tm_year + 1900;
  fprintf(errfile,"%04d_%02d_%02d %02d:%02d:%02d Z  : Log file opened\n", year, month, snow->tm_mday, snow->tm_hour, snow->tm_min, snow->tm_sec);
 
- char* infname = hougasargs_flagvalue(chart, 3);
- m_format format = hougasargs_flagcount(chart, 2) ? f_csv  :
-                   hougasargs_flagcount(chart, 4) ? f_json :
-                   hougasargs_flagcount(chart, 8) ? f_yaml :
-                                                    f_csv  ;
+ unsigned int infnamelength = strlen(chart.flagv[3]);
+ char* infname = (char*)malloc(infnamelength+1);
+ strcpy(infname, chart.flagv[3]);
+ char **infnamebatch;
+ unsigned int ninfname;
+ tokenize(&infnamebatch, &ninfname, infname);
+ m_format format = chart.flagc[2] ? f_csv  :
+                   chart.flagc[4] ? f_json :
+                   chart.flagc[8] ? f_yaml :
+                                    f_csv  ;
+ FILE *outfile = strcmp(chart.flagv[6], "-") ? fopen(chart.flagv[6], "w") : stdout;
+ if(outfile == NULL)
+ {
+  fprintf(errfile, " ERROR 2: failed to open output file %s\n",  chart.flagv[6]);
+  if(errfile != stderr) fclose(errfile);
+  return 2;
+ }
  outmode omode =
  {
   format,
-  hougasargs_flagcount(chart, 7) ? 1 : 0,
-  hougasargs_flagvalue(chart, 6)
+  chart.flagc[7] ? 1 : 0,
+  outfile
  };
 
- FILE* dicom = strcmp("-",infname) ? fopen(infname, "r") : stdin;
- if(dicom == NULL) 
+
+ clock_t *inputloaded    = (clock_t*)malloc(sizeof(clock_t)*ninfname);
+ clock_t *fileprocessed  = (clock_t*)malloc(sizeof(clock_t)*ninfname);
+ clock_t *outputsent     = (clock_t*)malloc(sizeof(clock_t)*ninfname);
+ clock_t *memoryreleased = (clock_t*)malloc(sizeof(clock_t)*ninfname);
+
+ unsigned int j;
+ for(j = 0; j < ninfname; j++)
  {
-  fprintf(errfile, " ERROR 2: failed to open input file %s\n", infname);
-  fclose(errfile);
-  return 2;
+  FILE* dicom = strcmp("-",infnamebatch[j]) ? fopen(infnamebatch[j], "r") : stdin;
+  if(dicom == NULL) 
+  {
+   fprintf(errfile, " ERROR 3: failed to open input file %s\n", infnamebatch[j]);
+   if(errfile != stderr) fclose(errfile);
+   return 3;
+  }
+
+  dcmbuff *buff; dcmbuff_loaddicom(&buff, dicom);
+  if(dicom == stdin ? 0 : fclose(dicom))
+   fprintf(errfile, " ERROR 4: failed to close input file %s; continuing\n", infnamebatch[j]);
+  inputloaded[j] = clock();
+
+  dcmelarr *metaarr; dcmelement_mkarr(&metaarr);
+  tsmode mode;
+  if(procfilemeta(metaarr, &mode, buff)) 
+  {
+   fprintf(errfile, " ERROR 5: failed to process file metadata elements\n");
+   if(errfile != stderr) fclose(errfile);
+   return 5;
+  }
+
+  dcmelarr *bodyarr; dcmelement_mkarr(&bodyarr);
+  if(procfilebody(bodyarr, mode, buff))
+  {
+   fprintf(errfile, " ERROR 6: failed to process file body elements\n");
+   if(errfile != stderr) fclose(errfile);
+   return 6;
+  }
+
+  dcmbuff_del(buff);
+
+  unsigned int i;
+  if(omode.r)
+   for(i = 0; i < bodyarr->p; i++)
+    if(bodyarr->els[i] != NULL)
+     dcmtree_recursivehang(&bodyarr->els[i]);
+  fileprocessed[j] = clock();
+
+  if(dcmoutput_out(omode, metaarr, bodyarr))
+  {
+   fprintf(errfile, " ERROR 7: failed to write to file %s\n", omode.outfile);
+   if(errfile != stderr) fclose(errfile);
+   return 7;
+  }
+  outputsent[j] = clock();
+
+  if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 8: failed to free metadata array; continuing");
+  if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 9: failed to free body array; continuing");
+  memoryreleased[j] = clock();
  }
-
- dcmbuff *buff; dcmbuff_loaddicom(&buff, dicom);
- int err = dicom == stdin ? 0 : fclose(dicom);
- if(err)
-  fprintf(errfile, " ERROR 3: failed to close input file %s; continuing\n", infname);
- clock_t inputloaded = clock();
-
- dcmelarr *metaarr; dcmelement_mkarr(&metaarr);
- tsmode mode;
- if(procfilemeta(metaarr, &mode, buff)) 
- {
-  fprintf(errfile, " ERROR 4: failed to process file metadata elements\n");
-  if(errfile != stderr) fclose(errfile);
-  return 4;
- }
-
- dcmelarr *bodyarr; dcmelement_mkarr(&bodyarr);
- if(procfilebody(bodyarr, mode, buff))
- {
-  fprintf(errfile, " ERROR 5: failed to process file body elements\n");
-  if(errfile != stderr) fclose(errfile);
-  return 5;
- }
-
- dcmbuff_del(buff);
-
- unsigned int i;
- if(omode.r)
-  for(i = 0; i < bodyarr->p; i++)
-   if(bodyarr->els[i] != NULL)
-    dcmtree_recursivehang(&bodyarr->els[i]);
- clock_t fileprocessed = clock();
-
- if(dcmoutput_out(omode, metaarr, bodyarr))
- {
-  fprintf(errfile, " ERROR 6: failed to write to file %s\n", omode.outfname);
-  if(errfile != stderr) fclose(errfile);
-  return 6;
- }
- clock_t outputsent = clock();
-
- if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 7: failed to free metadata array; continuing");
- if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 8: failed to free body array; continuing");
- clock_t memoryreleased = clock();
-
 
  clock_t cputime = clock();
  time(&now);
  char cputimestr[20];
 
- formatcputime(cputimestr, inputloaded);
- fprintf(errfile, " %s -- Input file loaded\n", cputimestr);
- formatcputime(cputimestr, fileprocessed);
- fprintf(errfile, " %s -- File processed\n", cputimestr);
- formatcputime(cputimestr, outputsent);
- fprintf(errfile, " %s -- Output written\n", cputimestr);
- formatcputime(cputimestr, memoryreleased);
- fprintf(errfile, " %s -- Memory released\n", cputimestr);
+ for(j = 0; j < ninfname; j++)
+ {
+  formatcputime(cputimestr, inputloaded[j]);
+  fprintf(errfile, " %s -- Input file loaded %s\n", cputimestr, infnamebatch[j]);
+  formatcputime(cputimestr, fileprocessed[j]);
+  fprintf(errfile, " %s -- File processed\n", cputimestr);
+  formatcputime(cputimestr, outputsent[j]);
+  fprintf(errfile, " %s -- Output written\n", cputimestr);
+  formatcputime(cputimestr, memoryreleased[j]);
+  fprintf(errfile, " %s -- Element arrays released\n", cputimestr);
+ }
 
  formatcputime(cputimestr, cputime);
  fprintf(errfile, "%011ld  : %s   : Operations completed successfully\n", now, cputimestr);
 
- err = errfile == stderr ? 0 : fclose(errfile);
- if(err) {perror("7:parsefile; continuing");}
+ if(errfile == stderr ? 0 : fclose(errfile)) {perror("10: parsefile; continuing");}
 
  return 0;
 }

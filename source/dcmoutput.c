@@ -182,62 +182,57 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
 {
  int i,j;
  dcmel *el;
- FILE *outfile = strcmp("-",omode.outfname) ? fopen(omode.outfname, "w") : stdout;
- if(outfile == NULL) return perror("1:dcmoutput_out"), 1;
 
  switch(omode.f)
  {
  case f_yaml:
   if(omode.r)
   {
-   fprintf(outfile,"---\n");
-   dcmoutput_flatarrayyaml(outfile, meta, "meta");
-   fprintf(outfile,"body:\n");
+   fprintf(omode.outfile,"---\n");
+   dcmoutput_flatarrayyaml(omode.outfile, meta, "meta");
+   fprintf(omode.outfile,"body:\n");
    for(i = 0; i < body->p; i++)
     if(body->els[i] != NULL)
-     dcmoutput_yamlrecurse(outfile, body->els[i], 0);
-   fprintf(outfile,"...\n");
+     dcmoutput_yamlrecurse(omode.outfile, body->els[i], 0);
+   fprintf(omode.outfile,"...\n");
   }
   else
   {
-   fprintf(outfile,"---\n");
-   dcmoutput_flatarrayyaml(outfile, meta, "meta");
-   dcmoutput_flatarrayyaml(outfile, body, "body");
-   fprintf(outfile,"...\n");
+   fprintf(omode.outfile,"---\n");
+   dcmoutput_flatarrayyaml(omode.outfile, meta, "meta");
+   dcmoutput_flatarrayyaml(omode.outfile, body, "body");
+   fprintf(omode.outfile,"...\n");
   }
  break;
  case f_json:
   if(omode.r)
   {
-   fprintf(outfile, "{\n");
-   dcmoutput_flatarrayjson(outfile, meta, "meta");
-   fprintf(outfile, ",\n \"body\": [");
+   fprintf(omode.outfile, "{\n");
+   dcmoutput_flatarrayjson(omode.outfile, meta, "meta");
+   fprintf(omode.outfile, ",\n \"body\": [");
    for(i = 0; i < body->p - 1; i++)
     if(body->els[i] != NULL)
     {
-     dcmoutput_jsonrecurse(outfile, body->els[i], 0);
-     fprintf(outfile, ",");
+     dcmoutput_jsonrecurse(omode.outfile, body->els[i], 0);
+     fprintf(omode.outfile, ",");
     }
    if(body->els[i] != NULL)
-    dcmoutput_jsonrecurse(outfile, body->els[i], 0);
-   fprintf(outfile, "\n ]\n}\n");
+    dcmoutput_jsonrecurse(omode.outfile, body->els[i], 0);
+   fprintf(omode.outfile, "\n ]\n}\n");
   }
   else
   {
-   fprintf(outfile, "{\n");
-   dcmoutput_flatarrayjson(outfile, meta, "meta");
-   fprintf(outfile, ",\n");
-   dcmoutput_flatarrayjson(outfile, body, "body");
-   fprintf(outfile, "\n}\n");
+   fprintf(omode.outfile, "{\n");
+   dcmoutput_flatarrayjson(omode.outfile, meta, "meta");
+   fprintf(omode.outfile, ",\n");
+   dcmoutput_flatarrayjson(omode.outfile, body, "body");
+   fprintf(omode.outfile, "\n}\n");
   }
  break;
  default:
   if(omode.r) return perror("2:dcmoutput_out"), 2;
-  dcmoutput_csv(outfile, meta, body);
+  dcmoutput_csv(omode.outfile, meta, body);
  }
-
- int err = outfile == stdin ? 0 : fclose(outfile);
- if(err) return perror("3:dcmoutput_out"), 3;
 
  return 0;
 }
