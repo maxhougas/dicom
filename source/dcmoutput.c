@@ -183,10 +183,10 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
  int i,j;
  dcmel *el;
  unsigned int innamelength = strlen(omode.tag) + 1;
- char *metatag = (char*)malloc(innamelength+5);
+ char *metatag = malloc(innamelength+5);
  memcpy(metatag, omode.tag, innamelength);
  strcat(metatag, "_meta");
- char *bodytag = (char*)malloc(innamelength+5);
+ char *bodytag = malloc(innamelength+5);
  memcpy(bodytag, omode.tag, innamelength);
  strcat(bodytag, "_body");
 
@@ -213,7 +213,9 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
  break;
  case f_json:
   if(!omode.current)
+{
    fprintf(omode.outfile, "{\n");
+}
   if(omode.r)
   {
    dcmoutput_flatarrayjson(omode.outfile, meta, metatag);
@@ -246,6 +248,7 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
 
  free(metatag);
  free(bodytag);
+ fflush(omode.outfile);
 
  return 0;
 }

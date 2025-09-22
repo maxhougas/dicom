@@ -30,10 +30,10 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
  byte1 *tmp;
  const int FIRSTPULL = 8;
 
- if(dcmbuff_get(&tmp, source, FIRSTPULL)) {perror("1:getelmeta"); return 1;}
+ if(dcmbuff_get(&tmp, source, FIRSTPULL)) return perror("1:getelmeta"), 1;
 
  byte1 *buff = malloc(FIRSTPULL);
- if(buff == NULL) {perror("2:getelmeta"); return 2;}
+ if(buff == NULL) return perror("2:getelmeta"), 2;
 
  memcpy(buff,tmp,FIRSTPULL);
  dest->tag = *(byte4*)buff;
@@ -54,12 +54,10 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
  else /*explicit vr, not short*/
  {
   const int SECONDPULL = 4;
-  if(dcmbuff_get(&tmp, source, SECONDPULL)) {perror("3:getelmeta"); return 3;}
+  if(dcmbuff_get(&tmp, source, SECONDPULL)) return perror("3:getelmeta"), 3;
 
-  void *newmem = realloc(buff, FIRSTPULL + SECONDPULL);
-  if(newmem == NULL) {perror("4:getelmeta"); return 4;}
+  if((buff = realloc(buff, FIRSTPULL + SECONDPULL)) == NULL) return perror("4:getelmeta"), 4;
 
-  buff = (byte1*)newmem;
   memcpy(&buff[FIRSTPULL], tmp, SECONDPULL);
   dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
   dest->length=((byte4*)buff)[2];
@@ -79,7 +77,7 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
 */
 int geteldata(dcmel *dest, dcmbuff *source)
 {
- if(dest == NULL || source == NULL) {perror("1:geteldata"); return 1;}
+ if(dest == NULL || source == NULL) return perror("1:geteldata"), 1;
 
  if(dcmspecialtag_ischildable(dest))
  {
@@ -90,10 +88,10 @@ int geteldata(dcmel *dest, dcmbuff *source)
   dest->effectivelength = dest->length;
 
  byte1 *tmp;
- if(dcmbuff_get(&tmp, source, dest->length)) {perror("2:geteldata"); return 2;}
+ if(dcmbuff_get(&tmp, source, dest->length)) return perror("2:geteldata"), 2;
 
  dest->data = malloc(dest->length);
- if(dest->data == NULL) {perror("3:geteldata"); return 3;}
+ if(dest->data == NULL) perror("3:geteldata"), 3;
 
  memcpy(dest->data, tmp, dest->length);
 
@@ -272,6 +270,10 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
   fprintf(stderr,"Output file not specified: assuming stdout\n");
   chart->flagv[6] = "-";
  }
+ if(chart->flagv[7] == NULL)
+ {
+  chart->flagv[7] = "";
+ }
 }
 
 int parsefile(int argc, char **argv)
@@ -380,8 +382,8 @@ int parsefile(int argc, char **argv)
   }
   outputsent[j] = clock();
 
-  if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 8: failed to free metadata array; continuing");
-  if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 9: failed to free body array; continuing");
+  if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 8: failed to free metadata array; continuing\n");
+  if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 9: failed to free body array; continuing\n");
   memoryreleased[j] = clock();
  }
 
