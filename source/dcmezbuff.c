@@ -22,12 +22,13 @@
 #include <stdlib.h>
 #endif
 
-#ifndef _DCMTYPES
+#ifndef DCMTYPES
 #include "dcmtypes.c"
 #endif
 
-#define _DCMBUFF 1
-#define _DCMEZBUFF 1
+#define DCMBUFF 1
+#define DCMEZBUFF 1
+
 /*
  this should NEVER be less than DICOMHEADERL + 4
 */

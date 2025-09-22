@@ -9,11 +9,11 @@
  renaming may be in order here
 */
 
-#ifndef _DCMTYPES
+#ifndef DCMTYPES
 #include "dcmtypes.c"
 #endif
 
-#define _DCMELEMENT 1
+#define DCMELEMENT 1
 
 #define dcmelement_ARRDEFAULTL 1024
 #define dcmelement_ARRTOADD dcmelement_ARRDEFAULTL

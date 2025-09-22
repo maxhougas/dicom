@@ -9,11 +9,11 @@
  dcmendian_handletag deals with the tag being 2 2-byte integers
 */
  
-#ifndef _DCMTYPES
+#ifndef DCMTYPES
 #include "dcmtypes.c"
 #endif
 
-#define _DCMENDIAN 1
+#define DCMENDIAN 1
 
 #define dcmendian_4flip(a) ((((a)&0xFF000000)>>24) + (((a)&0xFF0000)>>8) + (((a)&0xFF00)<<8) + (((a)&0xFF)<<24))
 
