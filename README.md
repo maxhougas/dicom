@@ -54,7 +54,7 @@ DICOM parser in ANSI compliant C
 ```
 -h, --help    : this
 -v, --version : version info (build date)
--c, --csv     : output in CSV format (default)
+-c, --csv     : output in CSV format
     --CSV
 -f, --file    : file to process; stdin is default
     --input
@@ -66,7 +66,7 @@ DICOM parser in ANSI compliant C
 -p, --prefix  : input file prefix
 -r, --recurse : engage recursive mode; hang children
     --tree
--y, --yaml    : output in YAML format
+-y, --yaml    : output in YAML format (default)
     --YAML
 ```
 - Example DICOMs can be found at [3dicomviewer](https://3dicomviewer.com/dicom-library)
@@ -80,6 +80,8 @@ DICOM parser in ANSI compliant C
   - The file `anotherdicom.dcm` will be parsed.
   - The internal representation of `anotherdicom.dcm` will be recursively processed.
   - A JSON representation of the data from `anotherdicom.dcm` will be appended to `cool.json`.
+- This program is not capable of ennumerating a directory. If external means are used to do so, processing an entire directory is possible.
+  - Such a line could be `./dcmproc -p path/to/dicoms/ -f "$(ls -1 path/to/dicoms)" -yro out.yml -l logfile`
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
