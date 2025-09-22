@@ -30,10 +30,10 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
  byte1 *tmp;
  const int FIRSTPULL = 8;
 
- if(dcmbuff_get(&tmp, source, FIRSTPULL)) {perror("1:getelmeta"); return 1;}
+ if(dcmbuff_get(&tmp, source, FIRSTPULL)) return perror("1:getelmeta"), 1;
 
  byte1 *buff = malloc(FIRSTPULL);
- if(buff == NULL) {perror("2:getelmeta"); return 2;}
+ if(buff == NULL) return perror("2:getelmeta"), 2;
 
  memcpy(buff,tmp,FIRSTPULL);
  dest->tag = *(byte4*)buff;
@@ -54,12 +54,10 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
  else /*explicit vr, not short*/
  {
   const int SECONDPULL = 4;
-  if(dcmbuff_get(&tmp, source, SECONDPULL)) {perror("3:getelmeta"); return 3;}
+  if(dcmbuff_get(&tmp, source, SECONDPULL)) return perror("3:getelmeta"), 3;
 
-  void *newmem = realloc(buff, FIRSTPULL + SECONDPULL);
-  if(newmem == NULL) {perror("4:getelmeta"); return 4;}
+  if((buff = realloc(buff, FIRSTPULL + SECONDPULL)) == NULL) return perror("4:getelmeta"), 4;
 
-  buff = (byte1*)newmem;
   memcpy(&buff[FIRSTPULL], tmp, SECONDPULL);
   dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
   dest->length=((byte4*)buff)[2];
@@ -79,7 +77,7 @@ int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
 */
 int geteldata(dcmel *dest, dcmbuff *source)
 {
- if(dest == NULL || source == NULL) {perror("1:geteldata"); return 1;}
+ if(dest == NULL || source == NULL) return perror("1:geteldata"), 1;
 
  if(dcmspecialtag_ischildable(dest))
  {
@@ -90,10 +88,10 @@ int geteldata(dcmel *dest, dcmbuff *source)
   dest->effectivelength = dest->length;
 
  byte1 *tmp;
- if(dcmbuff_get(&tmp, source, dest->length)) {perror("2:geteldata"); return 2;}
+ if(dcmbuff_get(&tmp, source, dest->length)) return perror("2:geteldata"), 2;
 
  dest->data = malloc(dest->length);
- if(dest->data == NULL) {perror("3:geteldata"); return 3;}
+ if(dest->data == NULL) perror("3:geteldata"), 3;
 
  memcpy(dest->data, tmp, dest->length);
 
@@ -162,7 +160,7 @@ int procfilebody(dcmelarr *arr, tsmode filemode, dcmbuff *source)
 
 void tokenize(char ***toks, unsigned int *ntoks, char *str)
 {
- const char DELIM = ' ';
+ const char DELIM = '\n';
  unsigned int length = strlen(str);
  *ntoks = 0;
  *toks = (char**)malloc(sizeof(char*)*((length+1)/2));
@@ -207,6 +205,7 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
  char *FLAG_JSON[] = {"\0","j","json","JSON",NULL};
  char *FLAG_LOG[] = {"\1","l","log",NULL};
  char *FLAG_OUTPUT[] = {"\1","o","output",NULL};
+ char *FLAG_PREFIX[] = {"\1","p","prefix",NULL};
  char *FLAG_RECURSE[] = {"\0","r","recurse","tree",NULL};
  char *FLAG_YAML[] = {"\0","y","yaml","YAML",NULL};
  char **VALIDFLAGS[] =
@@ -218,8 +217,9 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
 /* 04 */ FLAG_JSON,
 /* 05 */ FLAG_LOG,
 /* 06 */ FLAG_OUTPUT,
-/* 07 */ FLAG_RECURSE,
-/* 08 */ FLAG_YAML,
+/* 07 */ FLAG_PREFIX,
+/* 08 */ FLAG_RECURSE,
+/* 09 */ FLAG_YAML,
  NULL
  };
 
@@ -238,6 +238,7 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
   printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
   printf("                default is stderr\n");
   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
+  printf("-p, --prefix  : input file prefix\n");
   printf("-r, --recurse : engage recursive mode; hang children\n");
   printf("    --tree\n");
   printf("-y, --yaml    : output in YAML format\n");
@@ -249,7 +250,7 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
   printf("Built on %s\n", __DATE__);
   exit(0);
  }
- if(chart->flagc[2] && chart->flagc[7])
+ if(chart->flagc[2] && chart->flagc[8])
  {
   printf("Recursive mode not supported for CSV output.\n");
   exit(1);
@@ -268,6 +269,10 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
  {
   fprintf(stderr,"Output file not specified: assuming stdout\n");
   chart->flagv[6] = "-";
+ }
+ if(chart->flagv[7] == NULL)
+ {
+  chart->flagv[7] = "";
  }
 }
 
@@ -296,7 +301,7 @@ int parsefile(int argc, char **argv)
  tokenize(&infnamebatch, &ninfname, infname);
  m_format format = chart.flagc[2] ? f_csv  :
                    chart.flagc[4] ? f_json :
-                   chart.flagc[8] ? f_yaml :
+                   chart.flagc[9] ? f_yaml :
                                     f_csv  ;
  FILE *outfile = strcmp(chart.flagv[6], "-") ? fopen(chart.flagv[6], "w") : stdout;
  if(outfile == NULL)
@@ -308,7 +313,7 @@ int parsefile(int argc, char **argv)
  outmode omode =
  {
   format,
-  chart.flagc[7] ? 1 : 0,
+  chart.flagc[8] ? 1 : 0,
   outfile,
   "",
   0,
@@ -323,13 +328,18 @@ int parsefile(int argc, char **argv)
  unsigned int j;
  for(j = 0; j < ninfname; j++)
  {
-  FILE* dicom = strcmp("-",infnamebatch[j]) ? fopen(infnamebatch[j], "r") : stdin;
+  unsigned int prefixlength = strlen(chart.flagv[7]) + 1;
+  char *fullname = (char*)malloc(prefixlength + strlen(infnamebatch[j]));
+  memcpy(fullname, chart.flagv[7], prefixlength);
+  strcat(fullname, infnamebatch[j]);
+  FILE* dicom = strcmp("-", infnamebatch[j]) ? fopen(fullname, "r") : stdin;
   if(dicom == NULL) 
   {
    fprintf(errfile, " ERROR 3: failed to open input file %s\n", infnamebatch[j]);
    if(errfile != stderr) fclose(errfile);
    return 3;
   }
+  free(fullname);
 
   dcmbuff *buff; dcmbuff_loaddicom(&buff, dicom);
   if(dicom == stdin ? 0 : fclose(dicom))
@@ -372,8 +382,8 @@ int parsefile(int argc, char **argv)
   }
   outputsent[j] = clock();
 
-  if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 8: failed to free metadata array; continuing");
-  if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 9: failed to free body array; continuing");
+  if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 8: failed to free metadata array; continuing\n");
+  if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 9: failed to free body array; continuing\n");
   memoryreleased[j] = clock();
  }
 

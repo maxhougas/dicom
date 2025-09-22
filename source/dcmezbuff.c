@@ -98,7 +98,7 @@ int dcmezbuff_filetoobig(FILE *dicom)
 */
 int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
 {
- if(pbuff == NULL || dicom == NULL) {perror("1:dcmbuff_loaddicom"); return 1;}
+ if(pbuff == NULL || dicom == NULL) return perror("1:dcmbuff_loaddicom"), 1;
 
  byte1 *data;
  unsigned int nread;
@@ -106,30 +106,32 @@ int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
  if(dicom == stdin)
  {
   data = (byte1*)malloc(dcmezbuff_DICOMSIZEMAX);
-  if(data == NULL) {perror("2:dcmbuff_loaddicom"); return 2;}
+  if(data == NULL) return perror("2:dcmbuff_loaddicom"), 2;
 
   nread = fread(data, 1, dcmezbuff_DICOMSIZEMAX, stdin);
-  if(ferror(stdin)) {perror("3:dcmbuff_loaddicom"); return 3;}
+  if(ferror(stdin)) return perror("3:dcmbuff_loaddicom"), 3;
 
-  if(realloc(data, nread) == NULL) {perror("4:dcmbuff_loaddicom"); return 4;}
+  void* old = data;
+  if((data = realloc(data, nread)) == NULL) return perror("4:dcmbuff_loaddicom"), 4;
+  free(old);
  }
  else
  {
-  if(dcmezbuff_filetoobig(dicom)) {perror("2:dcmbuff_loaddicom"); return 2;}
+  if(dcmezbuff_filetoobig(dicom)) return perror("2:dcmbuff_loaddicom"), 2;
 
   long int size = ftell(dicom);
-  if(size == -1L) {perror("3:dcmbuff_loaddicom"); return 3;}
+  if(size == -1L) return perror("3:dcmbuff_loaddicom"), 3;
 
   rewind(dicom);
   data = (byte1*)malloc(size);
-  if(data == NULL) {perror("4:dcmbuff_loaddicom"); return 4;}
+  if(data == NULL) return perror("4:dcmbuff_loaddicom"), 4;
 
   nread = fread(data, 1, size, dicom);
-  if(ferror(dicom)) {perror("5:dcmbuff_loaddicom"); return 5;}
+  if(ferror(dicom)) return perror("5:dcmbuff_loaddicom"), 5;
  }
 
  *pbuff = (dcmbuff*)malloc(sizeof(dcmbuff));
- if(*pbuff == NULL) {perror("6:dcmbuff_loaddicom"); return 6;}
+ if(*pbuff == NULL) return perror("6:dcmbuff_loaddicom"), 6;
 
  (*pbuff)->data = data;
  (*pbuff)->p = dcmezbuff_DICOMHEADERL;
@@ -141,9 +143,7 @@ int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
   nread < dcmezbuff_DICOMHEADERL ||
   dcmbuff_get(&tocheck, *pbuff, strlen(dcmezbuff_DICOMFOURCC)) ||
   strncmp(tocheck, dcmezbuff_DICOMFOURCC, strlen(dcmezbuff_DICOMFOURCC))
- ) {perror("7:dcmbuff_loaddicom"); return 7;}
-/*
- if(feof(dicom)) {perror("-1:dcmbuff_loaddicom"); return -1;}
-*/
+ ) return perror("7:dcmbuff_loaddicom"), 7;
+
  return 0;
 }

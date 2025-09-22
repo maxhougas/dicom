@@ -25,10 +25,9 @@
 int dcmtree_recursivehang(dcmel **els)
 {
  if(els == NULL) return perror("1:dcmtree_recursivehang"), 1;
-
  if(!dcmspecialtag_ischildable(*els)) return 0;
 
- (*els)->children = (dcmel**)malloc(sizeof(dcmel*)*dcmtree_CHILDRENINITLENGTH);
+ (*els)->children = malloc(sizeof(dcmel*)*dcmtree_CHILDRENINITLENGTH);
  if((*els)->children == NULL) return perror("2:dcmtree_recursivehang"), 2;
 
  unsigned int maxchildren = dcmtree_CHILDRENINITLENGTH;
@@ -37,16 +36,16 @@ int dcmtree_recursivehang(dcmel **els)
  if((*els)->length != dcmtree_UNDEFINEDLENGTH) /* the easy one */
  {
   byte4 bytesforward = 0;
-  unsigned int istop = 0;
+  unsigned int istop;
 
   for(istop = 1; bytesforward < (*els)->length; istop++)
-   bytesforward += dcmspecialtag_ischildable(els[istop]) ? els[istop]->metalength : els[istop]->length + els[istop]->metalength;
+   bytesforward += els[istop]->effectivelength + els[istop]->metalength;
   for(i = 1; i < istop; i++)
   {
    if(els[i] == NULL) continue;
-   if(i - 1 == maxchildren) /* expand */
+   if((*els)->nchildren == maxchildren) /* expand */
    {
-    (*els)->children = (dcmel**)realloc((*els)->children, maxchildren + sizeof(dcmel*)*dcmtree_CHILDRENINITLENGTH);
+    (*els)->children = realloc((*els)->children, sizeof(dcmel*)*(maxchildren + dcmtree_CHILDRENINITLENGTH));
     if((*els)->children == NULL) return perror("3:dcmtree_recursivehang"), 3;
 
     maxchildren += dcmtree_CHILDRENINITLENGTH;
@@ -65,9 +64,9 @@ int dcmtree_recursivehang(dcmel **els)
   for(i = 1; els[i]->tag != tagstop; i++)
   {
    if(els[i] == NULL) continue;
-   if(i - 1 == maxchildren) /* expand */
+   if((*els)->nchildren == maxchildren) /* expand */
    {
-    (*els)->children = (dcmel**)realloc((*els)->children, maxchildren + sizeof(dcmel*)*dcmtree_CHILDRENINITLENGTH);
+    (*els)->children = realloc((*els)->children, sizeof(dcmel*)*(maxchildren + dcmtree_CHILDRENINITLENGTH));
     if((*els)->children == NULL) return perror("3:dcmtree_recursivehang"), 3;
 
     maxchildren += dcmtree_CHILDRENINITLENGTH;
@@ -80,9 +79,9 @@ int dcmtree_recursivehang(dcmel **els)
    els[i] = NULL;
   }
 
-  if(i - 1 == maxchildren) /* expand */
+  if((*els)->nchildren == maxchildren) /* expand */
   {
-   (*els)->children = (dcmel**)realloc((*els)->children, maxchildren + sizeof(dcmel*)*dcmtree_CHILDRENINITLENGTH);
+   (*els)->children = realloc((*els)->children, sizeof(dcmel*)*(maxchildren + dcmtree_CHILDRENINITLENGTH));
    if((*els)->children == NULL) return perror("3:dcmtree_recursivehang"), 3;
 
    maxchildren += dcmtree_CHILDRENINITLENGTH;
@@ -95,7 +94,7 @@ int dcmtree_recursivehang(dcmel **els)
 
  if((*els)->nchildren < maxchildren)
  {
-  (*els)->children = (dcmel**)realloc((*els)->children, sizeof(dcmel*)*(*els)->nchildren);
+  (*els)->children = realloc((*els)->children, sizeof(dcmel*)*(*els)->nchildren);
   if((*els)->children == NULL) return perror("4:dcmtree_recursivehang"), 4;
  }
 }

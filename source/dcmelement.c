@@ -45,10 +45,17 @@ typedef struct dcmel
 */
 int dcmeldel(dcmel *element)
 {
- if(element == NULL) return 0;
-
- free(element->data);
  free(element->rawmeta);
+ if(element->nchildren)
+ {
+  unsigned int i;
+  for(i = 0; i < element->nchildren; i++)
+   dcmeldel(element->children[i]);
+  free(element->children);
+ }
+ else
+  free(element->data);
+ 
  free(element);
 
  return 0;
@@ -89,10 +96,11 @@ int dcmelement_delarr(dcmelarr *arr)
 {
  if(arr == NULL || arr->els == NULL) return perror("1:dcmelement_delarr"), 1;
 
- int i;
+ unsigned int i;
 
  for(i = 0; i < arr->p; i++)
  {
+  if(arr->els[i] == NULL) continue;
   dcmeldel(arr->els[i]);
  }
 
