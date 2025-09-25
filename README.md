@@ -2,6 +2,10 @@
 
 # DICOM
 DICOM parser in ANSI compliant C
+- Parses DICOM files into an array or array of trees of dcmels
+- Renders that array as a YAML JSON, or CSV file
+- Capable of processing multiple files in batch
+- Makefile contains scripts which download tables from [dicom.nema.org](https://dicom.nema.org/mediacl/current/output), and generate .c files
 - More than 99% of the code (by lines) is procedurally generated!
 
 ###### [Go to ToC](#table-of-contents)
