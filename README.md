@@ -95,7 +95,7 @@ DICOM parser in ANSI compliant C
 - This program will read and parse dicom files representing them internally as an array of elements.
 - The element array can be "recursed" with the -r flag; childable nodes (those of VR SQ or tag 0xFFFEE000) will have their children arranged in a tree structure.
 - Elements are maintained in a way that the original file is recoverable from it's representation.
-- The representation can be written to a yaml or json format file with the -y or -j flags.
+- The representation can be written to a YAML or JSON format file with the -y or -j flags.
 - If the represention remains flat i.e. the -r flag is not issued, it can be written to a CSV format file.
 - Multiple DICOM files can be processed in batch by issuing a quoted, \n-delimited list to the -f flag.
 
@@ -110,8 +110,46 @@ DICOM parser in ANSI compliant C
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
 
+### The Table
+- Makefile containes script equivalent to the following
+```
+echo 'grabbing html from .../chtml/part6/chapter_{{7..9},6}.html'
+bash -c 'curl -s https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_{{7..9},6}.html' > part6table.htm
+
+echo 'Stripping HTML from part6table.htm'
+sed -z 's:\n *:__:g' part6table.htm |\
+grep -Po '<tbody>.*?</tbody>' |\
+grep -Po '<tr.*?</tr>' |\
+sed 's:<[^>]*>:___:g; s:^__*::; s: :_:g; s:\xe2\x80\x8b::g; s:&amp;:\\\\\\\&:g; s:(\|)\|'\'':\\\\\\&:g' |\
+awk -F '___+' -v OFS='___' '{gsub(/\\*\)|,/,"",$1); gsub(/x/,"{{0..9},{A..F}}",$1); gsub(/\\*\(/,"0x",$1); print $1,$2,$3,$4,$5}' |\
+while read line; do bash -c "echo `echo $line`"; done |\
+sed 's: :\n:g; s:_: :g; s:   :  :g;' > thetable
+
+echo 'Unrolling thetable'
+awk -F '  ' 'BEGIN{print "#ifndef _DCMTYPES\n#include \"dcmtypes.c\"\n#endif\n\nconst byte4 ALLTAGS[] =\n{"} {print $1","}' tmp/thetable |\
+sed '$s:,:\n};:' > thetable.c
+awk -F '  ' 'BEGIN{print "\n\nconst char *ALLNAMES[] = \n{"} {print "\""$2"\","}' thetable |\
+sed '$s:,:\n};:' >> thetable.c
+awk -F '  ' 'BEGIN{print "\n\nconst char *ALLKEYWORDS[] = \n{"} {print "\""$3"\","}' thetable |\
+sed '$s:,:\n};:' >> thetable.c
+awk -F '  ' 'BEGIN{print "\n\nconst char *ALLVRS[] = \n{"} {print "\""$4"\","}' thetable |\
+sed '$s:,:\n};:' >> thetable.c
+awk -F '  ' 'BEGIN{print "\n\nconst char *ALLVMS[] = \n{"} {print "\""$5"\","}' thetable |\
+sed '$s:,:\n};\n:' >> thetable.c
+echo 'const void *THETABLE[] = {ALLTAGS, ALLNAMES, ALLKEYWORDS, ALLVRS, ALLVMS};' >> thetable.c
+echo 'const int NTHETABLE = (sizeof(ALLTAGS)/sizeof(byte4));' >> thetable.c
+```
+1. HTML is pulled from [dicom.nema.org](https://dicom.nema.org)
+2. HTML tags are stripped yielding a plaintext table
+3. Tag ranges indicated with 'x's are prepped for brace expansion
+4. Brace expansion
+5. The Table is unrolled into parallel constant arrays in compilable C.
+
+###### [Go to Top](#top)
+###### [Go to ToC](#table-of-contents)
+
 ### Linux
-- Makefile assumes you have access to BASH--shell expansion is used excessively
+- Makefile assumes you have access to BASH--brace expansion is used excessively
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
