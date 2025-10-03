@@ -32,6 +32,8 @@ int dcmoutput_flatarrayyaml(FILE *outfile, dcmelarr *arr, char* label)
   }
   fprintf(outfile,"]\n");
  }
+
+ return 0;
 }
 
 
@@ -127,7 +129,7 @@ void dcmoutput_jsonrecurse(FILE *outfile, dcmel* el, unsigned int depth)
   for(i = 0; i < el->nchildren - 1; i++)
   {
    dcmoutput_jsonrecurse(outfile, el->children[i], depth + 1);
-   fprintf(outfile, ",", indent, indent);
+   fprintf(outfile, ",");
   }
   dcmoutput_jsonrecurse(outfile, el->children[i], depth + 1);
   fprintf(outfile, "\n%s   ]", indent);
@@ -176,12 +178,13 @@ int dcmoutput_csv(FILE *outfile, dcmelarr *meta, char *metatag, dcmelarr *body, 
    fprintf(outfile, "0x%02X ", el->data[j]);
   fprintf(outfile, "\n");
  }
+
+ return 0;
 }
 
 int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
 {
- int i,j;
- dcmel *el;
+ int i;
  unsigned int innamelength = strlen(omode.tag) + 1;
  char *metatag = malloc(innamelength+5);
  memcpy(metatag, omode.tag, innamelength);

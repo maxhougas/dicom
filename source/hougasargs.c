@@ -65,7 +65,7 @@ void hougasargs_delarglist(hougasargs_argnode *argnode)
   next = argnode == NULL ? NULL : argnode->next;
  }
  argnode = prev;
- while(argnode != NULL);
+ while(argnode != NULL)
  {
   free(argnode);
   argnode = prev;
@@ -102,15 +102,15 @@ int hougasargs_singletacflag(hougasargs_flagchart *flagchart, char ***validflags
  {
   for(j = 0; validflags[j] != NULL && arg[i] != validflags[j][1][0]; j++);
 
-  if(validflags[j] == NULL) {printf("Flag %c invalid\n",arg[i]); return 1;}
+  if(validflags[j] == NULL) return printf("Flag %c invalid\n",arg[i]), 1;
 
   flagchart->flagc[j]++;
 
-  if(validflags[j][0][0] && arg[i+1] != 0) {printf("Flag %c requires arg\n",arg[i]); return 2;}
+  if(validflags[j][0][0] && arg[i+1] != 0) return printf("Flag %c requires arg\n",arg[i]), 2;
  }
 
  if(!validflags[j][0][0]) return 0;
- if(argnode->next == NULL) {printf("Flag %c requires arg\n",arg[i-1]); return 3;}
+ if(argnode->next == NULL) return printf("Flag %c requires arg\n",arg[i-1]), 3;
 
  flagchart->flagv[j] = argnode->next->arg;
  hougasargs_removenode(argnode->next);
@@ -131,12 +131,12 @@ int hougasargs_doubletacflag(hougasargs_flagchart *flagchart, char ***validflags
   if(validflags[i][j] != NULL) break;
  }
 
- if(validflags[i] == NULL) {printf("Flag %s invalid\n", arg); return 1;}
+ if(validflags[i] == NULL) return printf("Flag %s invalid\n", arg), 1;
 
  flagchart->flagc[i]++;
 
  if(validflags[i][0][0] == 0) return 0;
- if(argnode->next == NULL) {printf("Flag %s requires arg"); return 2;}
+ if(argnode->next == NULL) return printf("Flag %s requires arg\n", validflags[i][j]), 2;
 
  flagchart->flagv[i] = argnode->next->arg;
  hougasargs_removenode(argnode->next);

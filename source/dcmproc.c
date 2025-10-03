@@ -91,7 +91,7 @@ int geteldata(dcmel *dest, dcmbuff *source)
  if(dcmbuff_get(&tmp, source, dest->length)) return perror("2:geteldata"), 2;
 
  dest->data = malloc(dest->length);
- if(dest->data == NULL) perror("3:geteldata"), 3;
+ if(dest->data == NULL) return perror("3:geteldata"), 3;
 
  memcpy(dest->data, tmp, dest->length);
 

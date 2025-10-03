@@ -112,9 +112,7 @@ int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
   nread = fread(data, 1, dcmezbuff_DICOMSIZEMAX, stdin);
   if(ferror(stdin)) return perror("3:dcmbuff_loaddicom"), 3;
 
-  void* old = data;
   if((data = realloc(data, nread)) == NULL) return perror("4:dcmbuff_loaddicom"), 4;
-  free(old);
  }
  else
  {

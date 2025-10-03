@@ -97,4 +97,6 @@ int dcmtree_recursivehang(dcmel **els)
   (*els)->children = realloc((*els)->children, sizeof(dcmel*)*(*els)->nchildren);
   if((*els)->children == NULL) return perror("4:dcmtree_recursivehang"), 4;
  }
+
+ return 0;
 }
