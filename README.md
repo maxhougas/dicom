@@ -49,7 +49,7 @@ DICOM parser in ANSI compliant C
 - [ ] Consider changing children array to dcmarr
 - [ ] Clean up messy dcmoutput.c code
 ### Bugs
-- [ ] Extra comma inserted with ending null nodes in body array
+- [x] Extra comma inserted with ending null nodes in body array in json output
 
 ## Table of Contents
 - [Todo](#todo)

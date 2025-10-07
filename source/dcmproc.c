@@ -373,9 +373,12 @@ int parsefile(int argc, char **argv)
 
   unsigned int i;
   if(omode.r)
+  {
    for(i = 0; i < bodyarr->p; i++)
     if(bodyarr->els[i] != NULL)
      dcmtree_recursivehang(&bodyarr->els[i]);
+   dcmtree_trim(bodyarr);
+  }
   fileprocessed[j] = clock();
 
   omode.tag = infnamebatch[j];

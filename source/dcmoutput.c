@@ -225,7 +225,7 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
     if(body->els[i] != NULL)
     {
      dcmoutput_jsonrecurse(omode.outfile, body->els[i], 0);
-     fprintf(omode.outfile, ",kitty");
+     fprintf(omode.outfile, ",");
     }
    if(body->els[i] != NULL)
     dcmoutput_jsonrecurse(omode.outfile, body->els[i], 0);
@@ -234,11 +234,11 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
   else
   {
    dcmoutput_flatarrayjson(omode.outfile, meta, metatag);
-   fprintf(omode.outfile, ",kitty2\n");
+   fprintf(omode.outfile, ",\n");
    dcmoutput_flatarrayjson(omode.outfile, body, bodytag);
   }
   if(omode.current != omode.last)
-   fprintf(omode.outfile, ",kitty3\n");
+   fprintf(omode.outfile, ",\n");
   else
    fprintf(omode.outfile, "\n}\n");
  break;
