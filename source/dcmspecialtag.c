@@ -67,7 +67,7 @@ int dcmspecialtag_isnovr(byte4 tag)
 */
 int dcmspecialtag_issq(byte1 *vr, byte4 tag)
 {
- if(!strncmp("SQ",vr,2)) return 0; /* vr is SQ */
+ if(!strncmp("SQ",vr,2)) return 1; /* vr is SQ */
 
  int low = 0, high = NSQTAGS-1, mid;
  while((mid = (high + low)/2) != low)

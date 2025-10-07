@@ -1,8 +1,8 @@
-all: dcmproc source/sqtags.c
+all: dcmproc
 
 dcmproc: source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmoutput.c source/dcmproc.c source/dcmspecialtag.c source/dcmtree.c source/dcmtypes.c source/hougasargs.c source/sqtags.c
 	echo 'Compiling dcmproc'
-	gcc -ansi -o dcmproc source/dcmproc.c
+	gcc -Wall -Werror -ansi -o dcmproc source/dcmproc.c
 
 tmp/part6table.htm:
 	echo 'grabbing html from .../chtml/part6/chapter_{{7..9},6}.html'
