@@ -46,6 +46,10 @@ DICOM parser in ANSI compliant C
   - [x] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
 - [x] Enable logging to file
 - [x] Clean up dcmoutput.c redundant code
+- [ ] Consider changing children array to dcmarr
+- [ ] Clean up messy dcmoutput.c code
+### Bugs
+- [ ] Extra comma inserted with ending null nodes in body array
 
 ## Table of Contents
 - [Todo](#todo)
