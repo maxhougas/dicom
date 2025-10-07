@@ -16,14 +16,6 @@ tmp/part6table-win.htm: tmp
 	wget https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_6.html -outfile tmp/part6.htm
 	get-content part7.htm part8.htm part9.htm part6.htm | set-content tmp/part6table-win.htm
 
-source/sqtags.c: tmp/part6table.htm
-	echo 'Stripping everything non-SQ from part6table.htm'
-	sed -z 's:\n *:!!:g; s:</tr>:</tr>\n:g' tmp/part6table.htm |\
-	grep '<tr.*SQ.*</tr>' |\
-	sed 's:).*:,:; s:,::; s:x:{{0..9},{A..F}}:g; s:.*(:0x:' |\
-	while read line; do bash -c "echo `echo $$line`"; done |\
-	sed 's:^0: 0:; s:, :,\n :g; 1s:^:#ifndef DCMTYPES\n#include "dcmtypes.c"\n#endif\n\nconst byte4 SQTAGS[] =\n{\n:; $$s:,$$:\n};\n\nconst int NSQTAGS = (sizeof(SQTAGS)/sizeof(byte4));:' > source/sqtags.c
-
 tmp/thetable: tmp/part6table.htm
 	echo 'Stripping HTML from part6table.htm'
 	sed -z 's:\n *:__:g' tmp/part6table.htm |\
@@ -33,6 +25,12 @@ tmp/thetable: tmp/part6table.htm
 	awk -F '___+' -v OFS='___' '{gsub(/\\*\)|,/,"",$$1); gsub(/x/,"{{0..9},{A..F}}",$$1); gsub(/\\*\(/,"0x",$$1); print $$1,$$2,$$3,$$4,$$5}' |\
 	while read line; do bash -c "echo `echo $$line`"; done |\
 	sed 's: :\n:g; s:_: :g; s:   :  :g;' > tmp/thetable
+
+source/sqtags.c: tmp/thetable
+	echo 'Selecting SQs from tmp/thetable'
+	grep SQ tmp/thetable |\
+	awk -F '  ' 'BEGIN{print "#ifndef DCMTYPES\n#include \"dcmtypes.c\"\n#endif\n\nconst byte4 SQTAGS[] =\n{"} {print $$1","}' |\
+	sed '$$s:,$$:\n};\n\nconst int NSQTAGS = (sizeof(SQTAGS)/sizeof(byte4));:' > source/sqtags.c
 
 source/thetable.c: tmp/thetable
 	echo 'Unrolling thetable'
