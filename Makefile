@@ -1,15 +1,19 @@
+source := source/dcmdirectory.c source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmoutput.c source/dcmproc.c source/dcmspecialtag.c source/dcmtree.c source/dcmtypes.c source/hougasargs.c source/sqtags.c 
+
 all: dcmproc
 
-dcmproc: source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmoutput.c source/dcmproc.c source/dcmspecialtag.c source/dcmtree.c source/dcmtypes.c source/hougasargs.c source/sqtags.c
-	echo 'Compiling dcmproc'
-	gcc -Wall -Werror -ansi -o dcmproc source/dcmproc.c
+dcmproc: $(source)
+	@echo 'Compiling dcmproc'
+	if [ -f /usr/include/unistd.h ]; then dirent="-D USEDIRENT=1"; fi &&\
+	if [ -f /usr/include/stdint.h ]; then stdint="-D USESTDINT=1"; fi &&\
+	gcc -Wall -Werror -ansi $$dirent $$stdint -o dcmproc source/dcmproc.c
 
 tmp/part6table.htm:
 	echo 'grabbing html from .../chtml/part6/chapter_{{7..9},6}.html'
 	bash -c 'curl -s https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_{{7..9},6}.html' > tmp/part6table.htm
 
 tmp/part6table-win.htm: tmp
-	echo 'WINDOWS: grabbing html from ../chtml/part6/chapter_{{7..9},6}.html'
+	@echo 'WINDOWS: grabbing html from ../chtml/part6/chapter_{{7..9},6}.html'
 	wget https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_7.html -outfile tmp/part7.htm
 	wget https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_8.html -outfile tmp/part8.htm
 	wget https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_9.html -outfile tmp/part9.htm
@@ -17,7 +21,7 @@ tmp/part6table-win.htm: tmp
 	get-content part7.htm part8.htm part9.htm part6.htm | set-content tmp/part6table-win.htm
 
 tmp/thetable: tmp/part6table.htm
-	echo 'Stripping HTML from part6table.htm'
+	@echo 'Stripping HTML from part6table.htm'
 	sed -z 's:\n *:__:g' tmp/part6table.htm |\
 	grep -Po '<tbody>.*?</tbody>' |\
 	grep -Po '<tr.*?</tr>' |\
@@ -27,13 +31,13 @@ tmp/thetable: tmp/part6table.htm
 	sed 's: :\n:g; s:_: :g; s:   :  :g;' > tmp/thetable
 
 source/sqtags.c: tmp/thetable
-	echo 'Selecting SQs from tmp/thetable'
+	@echo 'Selecting SQs from tmp/thetable'
 	grep SQ tmp/thetable |\
 	awk -F '  ' 'BEGIN{print "#ifndef DCMTYPES\n#include \"dcmtypes.c\"\n#endif\n\nconst byte4 SQTAGS[] =\n{"} {print $$1","}' |\
 	sed '$$s:,$$:\n};\n\nconst int NSQTAGS = (sizeof(SQTAGS)/sizeof(byte4));:' > source/sqtags.c
 
 source/thetable.c: tmp/thetable
-	echo 'Unrolling thetable'
+	@echo 'Unrolling thetable'
 	awk -F '  ' 'BEGIN{print "#ifndef _DCMTYPES\n#include \"dcmtypes.c\"\n#endif\n\nconst byte4 ALLTAGS[] =\n{"} {print $$1","}' tmp/thetable |\
 	sed '$$s:,:\n};:' > source/thetable.c
 	awk -F '  ' 'BEGIN{print "\n\nconst char *ALLNAMES[] = \n{"} {print "\""$$2"\","}' tmp/thetable |\
@@ -48,9 +52,9 @@ source/thetable.c: tmp/thetable
 	echo 'const int NTHETABLE = (sizeof(ALLTAGS)/sizeof(byte4));' >> source/thetable.c
 
 clean:
-	echo 'Cleaning, but not removing tmp/part6table.htm'
+	@echo 'Cleaning, but not removing tmp/part6table.htm'
 	rm dcmproc tmp/thetable source/sqtags.c source/thetable.c
 
 clean-win:
-	echo 'WINDOWS: cleaning'
-	rm tmp/part7.htm tmp/part8.htm tmp/part9.htm tmp/part6.htm tmp/art6table-win.htm
+	@echo 'WINDOWS: cleaning'
+	rm tmp/part7.htm tmp/part8.htm tmp/part9.htm tmp/part6.htm tmp/part6table-win.htm

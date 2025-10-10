@@ -3,11 +3,6 @@
 #include <string.h>
 #include <time.h>
 
-#define INCLUDESTDINT 0
-#if INCLUDESTDINT == 1
-#include <stdint.h>
-#endif
-
 #include "hougasargs.c"
 #include "dcmtypes.c"
 #include "dcmelement.c"
@@ -17,13 +12,10 @@
 #include "dcmspecialtag.c"
 #include "dcmtree.c"
 
-/* *nix specific files */
-#define NIXCOMPILE 0
-#if NIXCOMPILE == 1
+/* relies on dirent.h */
+#ifdef USEDIRENT
 #include "dcmdirectory.c"
 #endif
-
-#define FNAMEL 255
 
 const tsmode FILEMETATS = {v_explicit,e_little};
 
@@ -271,16 +263,17 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
   fprintf(stderr,"Input file / directory not specified; assuming stdin\n");
   chart->flagv[3] = "-";
  }
- else if(chart->flagc[3] && !NIXCOMPILE)
+#ifndef _DIRENT_H 
+ else if(chart->flagc[3])
  {
   fprintf(stderr, "Directory processing not compiled\n");
   exit(1);
  }
-#if NIXCOMPILE == 1
+#else
  else if(chart->flagv[3] != NULL)
  {
   char *files;
-  dcmdirectory_endir(&files, chart.flagv[3])
+  dcmdirectory_endir(&files, chart->flagv[3]);
   chart->flagv[4] = files;
   chart->flagv[8] = chart->flagv[3];
  }

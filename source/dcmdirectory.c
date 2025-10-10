@@ -1,3 +1,10 @@
+/*
+ dcmdirectory.h
+
+ one function for enumerating directories
+ depends on dirent.h *nix specific... I think?
+*/
+
 #ifndef _STDLIB_H
 #include <stdlib.h>
 #endif
@@ -33,6 +40,7 @@ int dcmdirectory_endir(char **dirs, char *dirname)
   if(sp + l >= dirsmax)
   {
    *dirs = realloc(*dirs, dirsmax + DIRSL);
+   dirsmax += DIRSL;
    if(dirs == NULL) return perror("2:endir -- failed to expand dirs"), 2;
   }
   memcpy(&(*dirs)[sp], de->d_name, l);
