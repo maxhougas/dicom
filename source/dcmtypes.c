@@ -8,17 +8,20 @@
 #include <stdlib.h>
 #endif
 
+#ifdef USESTDINT
+#include <stdint.h>
+#endif
+
 #define DCMTYPES 1
 
 /***
  use stdint if available
 ***/
+typedef char byte1;
 #ifdef _STDINT_H
- typedef uint8_t byte1;
  typedef uint16_t byte2;
  typedef uint32_t byte4;
 #else
- typedef char byte1;
  typedef unsigned short byte2;
  typedef unsigned int byte4;
 #endif

@@ -30,7 +30,7 @@ DICOM parser in ANSI compliant C
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
-  - [ ] dcmsmartbuff
+  - [x] dcmsmartbuff
     - [x] Back burner dcmsmartbuff
   - [x] dcmendian
   - [x] dcmspecialtag
@@ -64,6 +64,9 @@ DICOM parser in ANSI compliant C
 -v, --version : version info (build date)
 -c, --csv     : output in CSV format
     --CSV
+-d, --dir     : operate on contents of directory if compiled for
+    --directory
+    --folder
 -f, --file    : file to process; stdin is default
     --input
 -j, --json    : output in JSON format
@@ -88,8 +91,11 @@ DICOM parser in ANSI compliant C
   - The file `anotherdicom.dcm` will be parsed.
   - The internal representation of `anotherdicom.dcm` will be recursively processed.
   - A JSON representation of the data from `anotherdicom.dcm` will be appended to `cool.json`.
-- This program is not capable of ennumerating a directory. If external means are used to do so, processing an entire directory is possible.
-  - Such a line could be `./dcmproc -p path/to/dicoms/ -f "$(ls -1 path/to/dicoms)" -yro out.yml -l logfile`
+- This program is now capable of enumerating a directory.
+  - Passing the `-d` flag the name of a directory as an argument will invoke `readdir` from `dirent.h`
+    - Since `dirent.h` is not part of the C Standard Library, this functionality is optional i.e. the make file will test for the existence of `dirent.h` and compile accordingly.
+  - The old style of external directory enumeration `(i.e. with $(ls -1 ...)` is still valid.
+    - Such a line could be `./dcmproc -p path/to/dicoms/ -f "$(ls -1 path/to/dicoms)" -yro out.yml -l logfile`
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
@@ -97,19 +103,19 @@ DICOM parser in ANSI compliant C
 ## Description
 - This program assumes 8-bit bytes
 - This program will read and parse dicom files representing them internally as an array of elements.
-- The element array can be "recursed" with the -r flag; childable nodes (those of VR SQ or tag 0xFFFEE000) will have their children arranged in a tree structure.
+- The element array can be "recursed" with the `-r` flag; childable nodes (those of VR SQ or tag 0xFFFEE000) will have their children arranged in a tree structure.
 - Elements are maintained in a way that the original file is recoverable from it's representation.
-- The representation can be written to a YAML or JSON format file with the -y or -j flags.
+- The representation can be written to a YAML or JSON format file with the `-y` or `-j` flags.
 - If the represention remains flat i.e. the -r flag is not issued, it can be written to a CSV format file.
-- Multiple DICOM files can be processed in batch by issuing a quoted, \n-delimited list to the -f flag.
+- Multiple DICOM files can be processed in batch by issuing a quoted, \n-delimited list to the `-f` flag.
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
 
 ## Building
-  - Have make
-  - Run `make`
-  - Building tmp/part6table.htm will require interwebs
+  - Have `make`.
+  - Run `make`.
+  - Building tmp/part6table.htm will require interwebs.
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
@@ -143,7 +149,7 @@ sed '$s:,:\n};\n:' >> thetable.c
 echo 'const void *THETABLE[] = {ALLTAGS, ALLNAMES, ALLKEYWORDS, ALLVRS, ALLVMS};' >> thetable.c
 echo 'const int NTHETABLE = (sizeof(ALLTAGS)/sizeof(byte4));' >> thetable.c
 ```
-1. HTML is pulled from [dicom.nema.org](https://dicom.nema.org)
+1. HTML is pulled from [dicom.nema.org](https://dicom.nema.org/medical/dicom/current/output/chtml/part06)
 2. HTML tags are stripped yielding a plaintext table
 3. Tag ranges indicated with 'x's are prepped for brace expansion
 4. Brace expansion
