@@ -113,9 +113,9 @@ DICOM parser in ANSI compliant C
 ###### [Go to ToC](#table-of-contents)
 
 ## Building
-  - Have make
-  - Run `make`
-  - Building tmp/part6table.htm will require interwebs
+  - Have `make`.
+  - Run `make`.
+  - Building tmp/part6table.htm will require interwebs.
 
 ###### [Go to Top](#top)
 ###### [Go to ToC](#table-of-contents)
