@@ -27,10 +27,14 @@ int dcmtree_recursivehang(dcmel **els)
  if(els == NULL) return perror("1:dcmtree_recursivehang"), 1;
  if(!dcmspecialtag_ischildable(*els)) return 0;
 
- (*els)->children = malloc(sizeof(dcmel*)*dcmtree_CHILDRENINITLENGTH);
- if((*els)->children == NULL) return perror("2:dcmtree_recursivehang"), 2;
+ (*els)->childarr = malloc(sizeof(dcmelarr));
+ (*els)->childarr->els = malloc(sizeof(dcmel*)*dcmtree_CHILDRENINITLENGTH);
+ if((*els)->childarr == NULL || (*els)->childarr->els == NULL) return perror("2:dcmtree_recursivehang -- failed to allocate childarr"), 2;
 
- unsigned int maxchildren = dcmtree_CHILDRENINITLENGTH;
+ dcmelarr *children = (*els)->childarr;
+ children->p = 0;
+ children->l = dcmtree_CHILDRENINITLENGTH;
+
  unsigned int i;
 
  if((*els)->length != dcmtree_UNDEFINEDLENGTH) /* the easy one */
@@ -43,17 +47,19 @@ int dcmtree_recursivehang(dcmel **els)
   for(i = 1; i < istop; i++)
   {
    if(els[i] == NULL) continue;
-   if((*els)->nchildren == maxchildren) /* expand */
-   {
-    (*els)->children = realloc((*els)->children, sizeof(dcmel*)*(maxchildren + dcmtree_CHILDRENINITLENGTH));
-    if((*els)->children == NULL) return perror("3:dcmtree_recursivehang"), 3;
 
-    maxchildren += dcmtree_CHILDRENINITLENGTH;
+   if(children->p == children->l) /* expand */
+   {
+    children->els = realloc(children->els, sizeof(dcmel*) * (children->l + dcmtree_CHILDRENINITLENGTH));
+    if(children->els == NULL) return perror("3:dcmtree_recursivehang -- failed to expand children->els"), 3;
+
+    children->l += dcmtree_CHILDRENINITLENGTH;
    }
    if(dcmspecialtag_ischildable(els[i]))
     dcmtree_recursivehang(&els[i]);
-   (*els)->children[(*els)->nchildren] = els[i];
-   (*els)->nchildren++;
+   els[i]->parent = *els;
+   children->els[children->p] = els[i];
+   children->p++;
    els[i] = NULL;
   }
  }
@@ -64,38 +70,43 @@ int dcmtree_recursivehang(dcmel **els)
   for(i = 1; els[i]->tag != tagstop; i++)
   {
    if(els[i] == NULL) continue;
-   if((*els)->nchildren == maxchildren) /* expand */
-   {
-    (*els)->children = realloc((*els)->children, sizeof(dcmel*)*(maxchildren + dcmtree_CHILDRENINITLENGTH));
-    if((*els)->children == NULL) return perror("3:dcmtree_recursivehang"), 3;
 
-    maxchildren += dcmtree_CHILDRENINITLENGTH;
+   if(children->p == children->l) /* expand */
+   {
+    children->els = realloc(children->els, sizeof(dcmel*) * (children->l + dcmtree_CHILDRENINITLENGTH));
+    if(children->els == NULL) return perror("3:dcmtree_recursivehang -- failed to expand children->els"), 3;
+
+    children->l += dcmtree_CHILDRENINITLENGTH;
    }
 
    if(dcmspecialtag_ischildable(els[i]))
     dcmtree_recursivehang(&els[i]);
-   (*els)->children[(*els)->nchildren] = els[i];
-   (*els)->nchildren++;
+   els[i]->parent = *els;
+   children->els[children->p] = els[i];
+   children->p++;
    els[i] = NULL;
   }
 
-  if((*els)->nchildren == maxchildren) /* expand */
+  if(children->p == children->l) /* expand */
   {
-   (*els)->children = realloc((*els)->children, sizeof(dcmel*)*(maxchildren + dcmtree_CHILDRENINITLENGTH));
-   if((*els)->children == NULL) return perror("3:dcmtree_recursivehang"), 3;
+   children->els = realloc(children->els, sizeof(dcmel*) * (children->l + dcmtree_CHILDRENINITLENGTH));
+   if(children->els == NULL) return perror("3:dcmtree_recursivehang"), 3;
 
-   maxchildren += dcmtree_CHILDRENINITLENGTH;
+   children->l += dcmtree_CHILDRENINITLENGTH;
   }
 
-  (*els)->children[(*els)->nchildren] = els[i];
-  (*els)->nchildren ++;
+  els[i]->parent = *els;
+  children->els[children->p] = els[i];
+  children->p++;
   els[i] = NULL;
  }
 
- if((*els)->nchildren < maxchildren)
+ if(children->p < children->l) /* shrink array */
  {
-  (*els)->children = realloc((*els)->children, sizeof(dcmel*)*(*els)->nchildren);
-  if((*els)->children == NULL) return perror("4:dcmtree_recursivehang"), 4;
+  children->els = realloc(children->els, sizeof(dcmel*) * children->p);
+  if(children->els == NULL) return perror("4:dcmtree_recursivehang -- failed to shrink children->els"), 4;
+
+  children->l = children->p;
  }
 
  return 0;
@@ -106,13 +117,15 @@ int dcmtree_recursivehang(dcmel **els)
 */
 int dcmtree_trim(dcmelarr *arr)
 {
+ if(arr == NULL || arr->els == NULL) return perror("1:dcmtree_trim -- arr is null"), 1;
+
  unsigned int i;
  for(i = arr->p - 1; arr->els[i] == NULL && i > 0; i--);
- if(i == 0 && arr->els[0] == NULL) return perror("1:dcmtree_trim\n"), 1;
+ if(i == 0 && arr->els[0] == NULL) return perror("2:dcmtree_trim -- arr->els is empty"), 2;
  arr->p = i + 1;
-/*
- arr->els = realloc(arr->els, sizeof(dcmel*)*i);
- if(arr->els == NULL) return perror("2:dcmtree_trim\n"), 2;
-*/
+
+ arr->els = realloc(arr->els, sizeof(dcmel*) * arr->p);
+ if(arr->els == NULL) return perror("3:dcmtree_trim -- failed to shrink arr->els"), 3;
+
  return 0;
 }

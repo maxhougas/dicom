@@ -106,7 +106,11 @@ int getputel(dcmelarr *arr, dcmbuff *source, tsmode mode)
  dcmel *el = (dcmel*)malloc(sizeof(dcmel));
  if(el == NULL) return perror("2:getputel"), 2;
 
+ el->childarr = NULL;
+/*
  el->nchildren = 0;
+*/
+
  if(getelmeta(el, source, mode)) return perror("3:getputel"), 3;
 
  if(geteldata(el, source)) return perror("4:getputel"), 4;

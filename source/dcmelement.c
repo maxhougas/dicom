@@ -15,7 +15,7 @@
 
 #define DCMELEMENT 1
 
-#define dcmelement_ARRDEFAULTL 1024
+#define dcmelement_ARRDEFAULTL 0x400
 #define dcmelement_ARRTOADD dcmelement_ARRDEFAULTL
 
 /*
@@ -27,7 +27,11 @@
 
  buffnum pos and datastop are depricated asof 20250908
 */
-typedef struct dcmel
+
+typedef struct dcmelarr dcmelarr;
+typedef struct dcmel dcmel;
+
+struct dcmel
 {
  byte4 tag;
  byte1 vr[2];
@@ -36,52 +40,57 @@ typedef struct dcmel
  byte4 effectivelength;
  byte1* rawmeta;
  byte1* data;
- struct dcmel** children;
- byte4 nchildren;
-} dcmel;
+
+ dcmel *parent;
+ dcmelarr *childarr;
 
 /*
- free(&dcmel) is bad
+ struct dcmel** children;
+ byte4 nchildren;
 */
-int dcmeldel(dcmel *element)
-{
- free(element->rawmeta);
- if(element->nchildren)
- {
-  unsigned int i;
-  for(i = 0; i < element->nchildren; i++)
-   dcmeldel(element->children[i]);
-  free(element->children);
- }
- else
-  free(element->data);
- 
- free(element);
+};
 
- return 0;
-}
-
-typedef struct
+struct dcmelarr
 {
  unsigned int l;
  unsigned int p;
  dcmel **els;
-} dcmelarr;
+};
+
+int dcmelement_delel(dcmel *el);
+int dcmelement_delarr(dcmelarr *arr);
 
 /*
- = 0: success
- = 1: parr is null
- = 2: failed to allocate memory
+ free(&dcmel) is bad
+*/
+int dcmelement_delel(dcmel *el)
+{
+ if(el == NULL) return 0;
+
+ free(el->rawmeta);
+
+ if(el->childarr != NULL)
+  dcmelement_delarr(el->childarr);
+ else
+  free(el->data);
+ 
+ free(el);
+
+ return 0;
+}
+
+/*
+ initialize dcmelarr
 */
 int dcmelement_mkarr(dcmelarr **parr)
 {
- if(parr == NULL) return perror("1:dcmelement_mkarr"), 1;
+ if(parr == NULL) return perror("1:dcmelement_mkarr -- parr is null"), 1;
 
  *parr = malloc(sizeof(dcmelarr));
- if(*parr == NULL) return perror("2:dcmelement_mkarr"), 2;
+ if(*parr == NULL) return perror("2:dcmelement_mkarr -- failed to allocate *parr"), 2;
 
  (*parr)->els = (dcmel**)malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
- if((*parr)->els == NULL) return perror("3:dcmelement_mkarr"), 3;
+ if((*parr)->els == NULL) return perror("3:dcmelement_mkarr -- failed to allocate *parr->els"), 3;
 
  (*parr)->l = dcmelement_ARRDEFAULTL;
  (*parr)->p = 0;
@@ -94,14 +103,14 @@ int dcmelement_mkarr(dcmelarr **parr)
 */
 int dcmelement_delarr(dcmelarr *arr)
 {
- if(arr == NULL || arr->els == NULL) return perror("1:dcmelement_delarr"), 1;
+ if(arr == NULL) return 0;
 
  unsigned int i;
 
  for(i = 0; i < arr->p; i++)
  {
   if(arr->els[i] == NULL) continue;
-  dcmeldel(arr->els[i]);
+  dcmelement_delel(arr->els[i]);
  }
 
  free(arr->els);
@@ -112,7 +121,7 @@ int dcmelement_delarr(dcmelarr *arr)
 
 int dcmelement_addel(dcmelarr *arr, dcmel *el)
 {
- if(arr == NULL || el == NULL) return perror("1:dcmelement_addel"), 1;
+ if(arr == NULL || arr->els == NULL || el == NULL) return perror("1:dcmelement_addel"), 1;
 
  if(arr->p == arr->l) /* expand buffer */
  {
