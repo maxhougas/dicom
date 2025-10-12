@@ -108,11 +108,11 @@ int dcmtree_trim(dcmelarr *arr)
 {
  unsigned int i;
  for(i = arr->p - 1; arr->els[i] == NULL && i > 0; i--);
- if(i == 0 && arr->els[0] == NULL) return perror("1:dcmtree_trim\n"), 1;
+ if(i == 0 && arr->els[0] == NULL) return perror("1:dcmtree_trim"), 1;
  arr->p = i + 1;
 /*
- arr->els = realloc(arr->els, sizeof(dcmel*)*i);
- if(arr->els == NULL) return perror("2:dcmtree_trim\n"), 2;
+ arr->els = realloc(arr->els, sizeof(dcmel*) * arr->p);
+ if(arr->els == NULL) return perror("2:dcmtree_trim"), 2;
 */
  return 0;
 }

@@ -15,7 +15,7 @@
 
 #define DCMELEMENT 1
 
-#define dcmelement_ARRDEFAULTL 1024
+#define dcmelement_ARRDEFAULTL 0x400
 #define dcmelement_ARRTOADD dcmelement_ARRDEFAULTL
 
 /*
