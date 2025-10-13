@@ -1,4 +1,4 @@
-source := source/dcmdirectory.c source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmoutput.c source/dcmproc.c source/dcmspecialtag.c source/dcmtree.c source/dcmtypes.c source/hougasargs.c source/sqtags.c 
+source := source/dcmdirectory.c source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmfile.c source/dcmlog.c source/dcmoutput.c source/dcmproc.c source/dcmspecialtag.c source/dcmtree.c source/dcmtypes.c source/hougasargs.c source/sqtags.c 
 
 all: dcmproc
 

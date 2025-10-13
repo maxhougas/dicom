@@ -5,11 +5,11 @@
 
 #include "hougasargs.c"
 #include "dcmtypes.c"
+#include "dcmlog.c"
 #include "dcmelement.c"
 #include "dcmendian.c"
 #include "dcmezbuff.c"
-#include "dcmoutput.c"
-#include "dcmspecialtag.c"
+#include "dcmfile.c"
 #include "dcmtree.c"
 
 /* relies on dirent.h */
@@ -17,149 +17,7 @@
 #include "dcmdirectory.c"
 #endif
 
-const tsmode FILEMETATS = {v_explicit,e_little};
-
-/*
- From dicom standard 5.7.1
- read and parse element metadata
-*/
-int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
-{
- byte1 *tmp;
- const int FIRSTPULL = 8;
-
- if(dcmbuff_get(&tmp, source, FIRSTPULL)) return perror("1:getelmeta"), 1;
-
- byte1 *buff = malloc(FIRSTPULL);
- if(buff == NULL) return perror("2:getelmeta"), 2;
-
- memcpy(buff,tmp,FIRSTPULL);
- dest->tag = *(byte4*)buff;
- dcmendian_handletag(&dest->tag, mode.e);
-
- if(dcmspecialtag_isnovr(dest->tag) || mode.v == v_implicit)
- {
-  memset(dest->vr,'x',2);
-  dest->length = ((byte4*)buff)[1];
-  dest->metalength = 8;
- }
- else if(dcmspecialtag_isshortvr(&buff[4]))
- {
-  dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
-  dest->length = ((byte2*)buff)[3];
-  dest->metalength = 8;
- }
- else /*explicit vr, not short*/
- {
-  const int SECONDPULL = 4;
-  if(dcmbuff_get(&tmp, source, SECONDPULL)) return perror("3:getelmeta"), 3;
-
-  if((buff = realloc(buff, FIRSTPULL + SECONDPULL)) == NULL) return perror("4:getelmeta"), 4;
-
-  memcpy(&buff[FIRSTPULL], tmp, SECONDPULL);
-  dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
-  dest->length=((byte4*)buff)[2];
-  dest->metalength = 12;
- }
-
- if(*dcmendian_SYSISLITTLE != mode.e)
-  dest->length = dcmendian_4flip(dest->length);
-
- dest->rawmeta = buff;
-
- return 0;
-}
-
-/*
- copy element data from buffer
-*/
-int geteldata(dcmel *dest, dcmbuff *source)
-{
- if(dest == NULL || source == NULL) return perror("1:geteldata"), 1;
-
- if(dcmspecialtag_ischildable(dest))
- {
-  dest->effectivelength = 0;
-  return 0;
- }
- else
-  dest->effectivelength = dest->length;
-
- byte1 *tmp;
- if(dcmbuff_get(&tmp, source, dest->length)) return perror("2:geteldata"), 2;
-
- dest->data = malloc(dest->length);
- if(dest->data == NULL) return perror("3:geteldata"), 3;
-
- memcpy(dest->data, tmp, dest->length);
-
- return 0;
-}
-
-/*
- grab el from source, process, place in arr
-*/
-int getputel(dcmelarr *arr, dcmbuff *source, tsmode mode)
-{
- if(arr == NULL || source == NULL || source->data == NULL) return perror("1:getputel"), 1;
-
- dcmel *el = (dcmel*)malloc(sizeof(dcmel));
- if(el == NULL) return perror("2:getputel"), 2;
-
- el->childarr = NULL;
-/*
- el->nchildren = 0;
-*/
-
- if(getelmeta(el, source, mode)) return perror("3:getputel"), 3;
-
- if(geteldata(el, source)) return perror("4:getputel"), 4;
-
- if(dcmelement_addel(arr, el)) return perror("5:getputel"), 5;
-
- return 0;
-}
-
-/*
- process the dicom file metadata into dcmels -> array
-*/
-int procfilemeta(dcmelarr *arr, tsmode *filemode, dcmbuff *source)
-{
- if(arr == NULL || filemode == NULL) return perror("1:procfilemeta"), 1;
-
- if(getputel(arr, source, FILEMETATS)) return perror("2:procfilemeta"), 2;
-
- byte4 datanumber;
- memcpy(&datanumber, (*arr->els)->data, sizeof(byte4));
- if(!dcmendian_SYSISLITTLE)
-  datanumber = dcmendian_4flip(datanumber);
- int filemetastop = source->p + datanumber;
-
-
- while(source->p < filemetastop) /* this will not work with dcmsmartbuff unless the first pull is good */
- {
-  if(getputel(arr, source, FILEMETATS)) return perror("3:procfilemeta"), 3;
-
-  if(arr->els[arr->p-1]->tag == dcmspecialtag_TSUID)
-   if(dcmspecialtag_tsdecode(filemode, arr->els[arr->p-1]->data, arr->els[arr->p-1]->length)) return perror("4:procfilemeta"), 4;
- }
-
- return 0;
-}
-
-/*
- process dicom file body into dcmels -> array
-*/
-int procfilebody(dcmelarr *arr, tsmode filemode, dcmbuff *source)
-{
- if(arr == NULL) return perror("1:procfilebody"), 1;
-
- while(source->p < source->l) /* this will not work with dcmsmartbuff */
-  if(getputel(arr, source, filemode)) return perror("2:procfilebody"), 2;
-
- return 0;
-}
-
+/* tokenize input file list */
 void tokenize(char ***toks, unsigned int *ntoks, char *str)
 {
  const char DELIM = '\n';
@@ -185,17 +43,6 @@ void tokenize(char ***toks, unsigned int *ntoks, char *str)
   else if(*p == DELIM)
    *p = 0;
  }
-}
-
-void formatcputime(char *str, clock_t cputime)
-{
- unsigned int cpusec = cputime / CLOCKS_PER_SEC;
- unsigned int subsec = cputime % CLOCKS_PER_SEC;
-                     /*0123456789012345678*/
- char subsecstr[18] = "                 \0";
- sprintf(subsecstr,"%-16lu",subsec + CLOCKS_PER_SEC);
- subsecstr[strlen(subsecstr)] = ' ';
- sprintf(str,"%03u.%s", cpusec, &subsecstr[1]);
 }
 
 void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
@@ -298,6 +145,32 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
  }
 }
 
+int beginops(int argc, char **argv)
+{
+ hougasargs_flagchart chart;
+ doflagstuff(&chart, argc, argv);
+
+ /* open log file */
+ dcmlog_log(0, chart.flagv[6], NULL);
+
+ /* expand input fnames */
+ char *file = chart.flagv[4];
+ unsigned int infnamelength = strlen(file);
+ char* infnames = malloc(infnamelength+1);
+ strcpy(infnames, file);
+ unsigned int ninfname;
+ char **infnamebatch;
+ tokenize(&infnamebatch, &ninfname, infnames);
+
+ dcmfile_translate(&chart, infnamebatch, ninfname);
+
+ dcmlog_log(-1, NULL, NULL);
+
+ return 0;
+}
+
+#ifdef UNDEFINED
+
 int parsefile(int argc, char **argv)
 {
  /* start of operations time */
@@ -308,7 +181,7 @@ int parsefile(int argc, char **argv)
 
  /* names for flagchart components */
  unsigned int  csv     = chart.flagc[ 2];
- /* char         *dir     = chart.flagv[ 3]; */
+ /* UNUSED: handled in doflagstuff char         *dir     = chart.flagv[ 3]; */
  char         *file    = chart.flagv[ 4];
  unsigned int  json    = chart.flagc[ 5];
  char         *log     = chart.flagv[ 6];
@@ -367,7 +240,7 @@ int parsefile(int argc, char **argv)
  for(j = 0; j < ninfname; j++)
  {
   unsigned int prefixlength = strlen(prefix) + 1;
-  char *fullname = (char*)malloc(prefixlength + strlen(infnamebatch[j]));
+  char *fullname = malloc(prefixlength + strlen(infnamebatch[j]));
   memcpy(fullname, prefix, prefixlength);
   strcat(fullname, infnamebatch[j]);
   FILE* dicom = strcmp("-", infnamebatch[j]) ? fopen(fullname, "r") : stdin;
@@ -454,7 +327,9 @@ int parsefile(int argc, char **argv)
  return 0;
 }
 
+#endif
+
 int main(int argc, char** argv)
 {
- return parsefile(argc, argv);
+ return beginops(argc, argv);
 }

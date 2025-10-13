@@ -56,9 +56,9 @@ void dcmbuff_del(dcmbuff *todel)
 */
 int dcmbuff_get(byte1 **current, dcmbuff *buff, int numchars)
 {
- if(current == NULL || buff == NULL || buff->data == NULL) {perror("1:dcmbuff_get"); return 1;}
+ if(current == NULL || buff == NULL || buff->data == NULL) return perror("1:dcmbuff_get"), 1;
 
- if(buff->l-buff->p < numchars || numchars < 0) {perror("2:dcmbuff_get"); return 2;}
+ if(buff->l-buff->p < numchars || numchars < 0) return perror("2:dcmbuff_get"), 2;
 
  *current = &buff->data[buff->p];
  buff->p += numchars;
@@ -68,9 +68,8 @@ int dcmbuff_get(byte1 **current, dcmbuff *buff, int numchars)
 
 int dcmbuff_peek(byte1 **current, dcmbuff *buff, int numchars)
 {
- if(*current == NULL || buff == NULL || buff->data == NULL) {perror("1:dcmbuff_peek"); return 1;}
- 
- if(buff->l-buff->p < numchars || numchars < 0) {perror("2:dcmbuff_peek"); return 2;}
+ if(*current == NULL || buff == NULL || buff->data == NULL) return perror("1:dcmbuff_peek"), 1;
+ if(buff->l-buff->p < numchars || numchars < 0) return perror("2:dcmbuff_peek"), 2;
 
  *current = &buff->data[buff->p];
 
@@ -97,9 +96,12 @@ int dcmezbuff_filetoobig(FILE *dicom)
  =  5: unspecified file read error
  =  6: fourcc check failed
 */
-int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
+int dcmbuff_loaddicom(dcmbuff **pbuff, char *dicomfname)
 {
- if(pbuff == NULL || dicom == NULL) return perror("1:dcmbuff_loaddicom"), 1;
+ if(pbuff == NULL || dicomfname == NULL) return perror("1:dcmbuff_loaddicom"), 1;
+
+ FILE *dicom = strcmp("-", dicomfname) ? fopen(dicomfname,"r") : stdin;
+ if(dicom == NULL) return perror("2:dcmbuff_loaddicom -- failed to open file"), 2;
 
  byte1 *data;
  unsigned int nread;
@@ -128,6 +130,8 @@ int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
   nread = fread(data, 1, size, dicom);
   if(ferror(dicom)) return perror("5:dcmbuff_loaddicom"), 5;
  }
+
+ fclose(dicom);
 
  *pbuff = (dcmbuff*)malloc(sizeof(dcmbuff));
  if(*pbuff == NULL) return perror("6:dcmbuff_loaddicom"), 6;

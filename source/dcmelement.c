@@ -71,7 +71,8 @@ int dcmelement_delel(dcmel *el)
 
  if(el->childarr != NULL)
   dcmelement_delarr(el->childarr);
- else
+
+ if(el->data != NULL) 
   free(el->data);
  
  free(el);
@@ -106,7 +107,6 @@ int dcmelement_delarr(dcmelarr *arr)
  if(arr == NULL) return 0;
 
  unsigned int i;
-
  for(i = 0; i < arr->p; i++)
  {
   if(arr->els[i] == NULL) continue;
