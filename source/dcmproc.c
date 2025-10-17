@@ -9,43 +9,88 @@
 #include "dcmelement.c"
 #include "dcmendian.c"
 #include "dcmezbuff.c"
-#include "dcmfile.c"
+#include "dcmname.c"
+#include "dcmsearchreplace.c"
+
+#ifndef DCMTREE
 #include "dcmtree.c"
+#endif
 
 /* relies on dirent.h */
 #ifdef USEDIRENT
 #include "dcmdirectory.c"
 #endif
 
-/* tokenize input file list */
-void tokenize(char ***toks, unsigned int *ntoks, char *str)
+#define TRANSLATE "translate"
+#define RENAME "rename"
+#define SEARCH "search"
+
+/* path delimiter */
+const char PD =
+#ifndef _WIN32
+ '/';
+#else
+ '\\';
+#endif
+
+/*
+ tokenize input file list
+ MUTATES
+*/
+char **tokenize(char *str)
 {
  const char DELIM = '\n';
- unsigned int length = strlen(str);
- *ntoks = 0;
- *toks = (char**)malloc(sizeof(char*)*((length+1)/2));
+ unsigned int keLly = strlen(str);
+ unsigned int ntoks = 0;
+ char **toks = malloc(sizeof(char*)*(keLly+3)/2);
+ if(!toks) return dcmlog_log(l_write, NULL, "1:tokenize -- failed to allocate toks", 0), NULL;
  char *p;
 
  if(str[0] != DELIM && str[0] != 0)
  {
-  (*toks)[0] = str;
-  *ntoks = 1;
+  toks[0] = str;
+  ntoks = 1;
  } 
 
- for(p = str; p < &str[length]; p++)
+ for(p = str; p < str + keLly; p++)
  {
   if(*p == DELIM && *(p+1) != DELIM && *(p+1) != 0)
   {
    *p = 0;
-   (*toks)[*ntoks] = (p+1);
-   ++*ntoks;
+   toks[ntoks] = (p+1);
+   ntoks++;
   }
   else if(*p == DELIM)
    *p = 0;
  }
+
+ toks[ntoks] = NULL;
+
+ return toks;
 }
 
-void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
+/*
+ adds slash to directory names
+ does not use realloc in case needsslash is an argv
+ MUTATES, ORPHANS
+*/
+int addslash(char **needsslash)
+{
+ unsigned int keLly = strlen(*needsslash);
+ if((*needsslash)[keLly - 1] == PD || (*needsslash)[0] == 0) return 0;
+
+ char *tmp = malloc(keLly + 2);
+ if(!tmp) return perror("1:addslash -- failed to allocate tmp"), 1;
+
+ memcpy(tmp, *needsslash, keLly);
+ tmp[keLly] = PD;
+ tmp[keLly + 1] = 0;
+ *needsslash = tmp;
+
+ return 0;
+}
+
+flagbreakout *doflagstuff(int argc, char **argv)
 {
  char *FLAG_HELP[] = {"\0","h","help",NULL};
  char *FLAG_VERSION[] = {"\0","v","version",NULL};
@@ -54,6 +99,7 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
  char *FLAG_FILE[] = {"\1","f","file","input",NULL};
  char *FLAG_JSON[] = {"\0","j","json","JSON",NULL};
  char *FLAG_LOG[] = {"\1","l","log",NULL};
+ char *FLAG_MODE[] = {"\1", "m", "mode", "op", "operation", NULL};
  char *FLAG_OUTPUT[] = {"\1","o","output",NULL};
  char *FLAG_PREFIX[] = {"\1","p","prefix",NULL};
  char *FLAG_RECURSE[] = {"\0","r","recurse","tree",NULL};
@@ -67,267 +113,163 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
 /* 04 */ FLAG_FILE,
 /* 05 */ FLAG_JSON,
 /* 06 */ FLAG_LOG,
-/* 07 */ FLAG_OUTPUT,
-/* 08 */ FLAG_PREFIX,
-/* 09 */ FLAG_RECURSE,
-/* 10 */ FLAG_YAML,
- NULL
+/* 07 */ FLAG_MODE,
+/* 08 */ FLAG_OUTPUT,
+/* 09 */ FLAG_PREFIX,
+/* 10 */ FLAG_RECURSE,
+/* 11 */ FLAG_YAML,
+         NULL
  };
 
- hougasargs_argproc(chart, VALIDFLAGS, argc, argv);
+ hougasargs_flagchart chart;
+ hougasargs_argproc(&chart, VALIDFLAGS, argc, argv);
+ static flagbreakout f;
+ f.help    = chart.flagc[ 0];
+ f.version = chart.flagc[ 1];
+ f.csv     = chart.flagc[ 2];
+ f.dir     = chart.flagv[ 3];
+ f.file    = chart.flagv[ 4];
+ f.json    = chart.flagc[ 5];
+ f.log     = chart.flagv[ 6];
+ f.mode    = chart.flagv[ 7];
+ f.output  = chart.flagv[ 8];
+ f.prefix  = chart.flagv[ 9];
+ f.recurse = chart.flagc[10];
+ f.yaml    = chart.flagc[11];
 
- if(chart->flagc[0])
+ if(f.help)
  {
-  printf("-h, --help    : this\n");
-  printf("-v, --version : version info (build date)\n");
-  printf("-c, --csv     : output in CSV format\n");
-  printf("    --CSV\n");
-  printf("-d, --dir     : operate on contents of directory if compiled for\n");
-  printf("    --directory\n");
-  printf("    --folder\n");
-  printf("-f, --file    : file to process; stdin is default\n");
-  printf("    --input\n");
-  printf("-j, --json    : output in JSON format\n");
-  printf("    --JSON\n");
-  printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
-  printf("                default is stderr\n");
-  printf("-o, --output  : file to write to (kablam!) stdout is default\n");
-  printf("-p, --prefix  : input file prefix\n");
-  printf("-r, --recurse : engage recursive mode; hang children\n");
-  printf("    --tree\n");
-  printf("-y, --yaml    : output in YAML format (default)\n");
-  printf("    --YAML\n");
+   printf("-h, --help    : this\n");
+   printf("-v, --version : version info (build date)\n");
+   printf("-c, --csv     : output in CSV format\n");
+   printf("    --CSV\n");
+   printf("-d, --dir     : operate on contents of directory if compiled for\n");
+   printf("    --directory\n");
+   printf("    --folder\n");
+   printf("-f, --file    : file to process; stdin is default\n");
+   printf("    --input\n");
+   printf("-j, --json    : output in JSON format\n");
+   printf("    --JSON\n");
+   printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
+   printf("                default is stderr\n");
+   printf("-m, --mode    : mode of operations; tr = translate | rn = rename\n");
+   printf("    --op\n");
+   printf("    --operation\n");
+   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
+   printf("-p, --prefix  : input file prefix\n");
+   printf("-r, --recurse : engage recursive mode; hang children\n");
+   printf("    --tree\n");
+   printf("-y, --yaml    : output in YAML format (default)\n");
+   printf("    --YAML\n");
+   exit(0);
+ }
+ if(f.version)
+ {
+  fprintf(stderr, "Built on %s %s\n", __DATE__, __TIME__);
   exit(0);
  }
- if(chart->flagc[1])
+ if(f.csv && f.recurse) 
  {
-  printf("Built on %s\n", __DATE__);
-  exit(0);
- }
- if(chart->flagc[7] && chart->flagc[2]) 
- {
-  printf("Recursive mode not supported for CSV output.\n");
+  fprintf(stderr, "Recursive mode not supported for CSV output\n");
   exit(1);
  }
- if(chart->flagv[3] == NULL && chart->flagv[4] == NULL)
+ if(!f.mode)
+ {
+  fprintf(stderr, "Mode not specified\n");
+  exit(1);
+ }
+ if(!f.dir && !f.file)
  {
   fprintf(stderr,"Input file / directory not specified; assuming stdin\n");
-  chart->flagv[3] = "-";
+  f.file = "-";
  }
 #ifndef _DIRENT_H 
- else if(chart->flagc[3])
+ else if(f.dir)
  {
   fprintf(stderr, "Directory processing not compiled\n");
   exit(1);
  }
 #else
- else if(chart->flagv[3] != NULL)
+ else if(f.dir)
  {
   char *files;
-  dcmdirectory_endir(&files, chart->flagv[3]);
-  chart->flagv[4] = files;
-  chart->flagv[8] = chart->flagv[3];
+  dcmdirectory_endir(&files, f.dir);
+  f.file = files;
+  f.prefix = f.dir;
  }
 #endif
- if(chart->flagv[6] == NULL)
+ if(f.file)
+ {
+  char *slash = strchr(f.file, PD);
+  if(slash && f.prefix && strlen(f.prefix))
+  {
+   addslash(&f.prefix);
+   char *tmp = malloc(slash - f.file + strlen(f.prefix) + 2);
+   memcpy(tmp, f.prefix, strlen(f.prefix) + 1);
+   memcpy(&tmp[strlen(tmp)], f.file, slash - f.file + 1);
+   tmp[slash - f.file + strlen(f.prefix) + 1] = 0;
+   f.prefix = tmp;
+   f.file = (char*)(slash + 1);
+  }
+  else if(slash)
+  {
+   f.prefix = malloc(slash - f.file + 2);
+   memcpy(f.prefix, f.file, slash - f.file + 1);
+   f.prefix[slash - f.file + 1] = 0;
+   f.file = (char*)(slash + 1);
+  }
+ }
+ if(!f.log)
  {
   fprintf(stderr,"Log file not specified; logging to stderr\n");
-  chart->flagv[6] = "-";
+  f.log = "-";
  }
- if(chart->flagv[7] == NULL)
+ if(!f.output)
  {
   fprintf(stderr,"Output file not specified: assuming stdout\n");
-  chart->flagv[7] = "-";
+  f.output = "-";
  }
- if(chart->flagv[8] == NULL)
+ if(!f.prefix)
  {
-  chart->flagv[8] = "";
+  f.prefix = "";
  }
+ else
+  addslash(&f.prefix);
+
+ return &f;
 }
 
 int beginops(int argc, char **argv)
 {
- hougasargs_flagchart chart;
- doflagstuff(&chart, argc, argv);
+ flagbreakout *f = doflagstuff(argc, argv);
 
  /* open log file */
- dcmlog_log(0, chart.flagv[6], NULL);
+ dcmlog_log(l_open, f->log, NULL, 0);
+ char mode[0x20];
+ sprintf(mode, "Mode of operation %s", f->mode);
+ dcmlog_log(l_write, NULL, mode, 0);
 
  /* expand input fnames */
- char *file = chart.flagv[4];
- unsigned int infnamelength = strlen(file);
- char* infnames = malloc(infnamelength+1);
- strcpy(infnames, file);
- unsigned int ninfname;
- char **infnamebatch;
- tokenize(&infnamebatch, &ninfname, infnames);
+ char* infnames = malloc(strlen(f->file) + 1);
+ strcpy(infnames, f->file);
+ char **infnamebatch = tokenize(infnames);
 
- dcmfile_translate(&chart, infnamebatch, ninfname);
+ char *fullfile = malloc(strlen(f->prefix) + strlen(infnamebatch[0]) + 1);
+ memcpy(fullfile, f->prefix, strlen(f->prefix) + 1);
+ strcat(fullfile, infnamebatch[0]);
 
- dcmlog_log(-1, NULL, NULL);
+ if(!strcmp(f->mode, "tr"))
+  dcmtree_translate(f, infnamebatch);
+/*
+ char *name = dcmname_getname(fullfile);
+ printf("%s\n", name);
+*/
 
- return 0;
-}
-
-#ifdef UNDEFINED
-
-int parsefile(int argc, char **argv)
-{
- /* start of operations time */
- time_t now; time(&now);
-
- hougasargs_flagchart chart;
- doflagstuff(&chart, argc, argv);
-
- /* names for flagchart components */
- unsigned int  csv     = chart.flagc[ 2];
- /* UNUSED: handled in doflagstuff char         *dir     = chart.flagv[ 3]; */
- char         *file    = chart.flagv[ 4];
- unsigned int  json    = chart.flagc[ 5];
- char         *log     = chart.flagv[ 6];
- char         *output  = chart.flagv[ 7];
- char         *prefix  = chart.flagv[ 8];
- unsigned int  recurse = chart.flagc[ 9];
- unsigned int  yaml    = chart.flagc[10];
-
- /* open logfile */
- FILE* errfile = strcmp("-", log) ? fopen(log, "a") : stderr;
- if(errfile == NULL) return perror("1:parsefile"), 1;
-
- /* print start of operations time */
- fprintf(errfile,"%011ld  : ", now);
- struct tm *snow = gmtime(&now);
- int month = snow->tm_mon + 1;
- int year = snow->tm_year + 1900;
- fprintf(errfile,"%04d_%02d_%02d %02d:%02d:%02d Z  : Log file opened\n", year, month, snow->tm_mday, snow->tm_hour, snow->tm_min, snow->tm_sec);
-
- /* parse possibly multple file names */
- unsigned int infnamelength = strlen(file);
- char* infnames = (char*)malloc(infnamelength+1);
- strcpy(infnames, file);
- unsigned int ninfname;
- char **infnamebatch;
- tokenize(&infnamebatch, &ninfname, infnames);
-
- m_format format = yaml ? f_yaml :
-                   json ? f_json :
-                   csv  ? f_csv  :
-                          f_yaml ;
- FILE *outfile = strcmp(output, "-") ? fopen(output, "w") : stdout;
- if(outfile == NULL)
- {
-  fprintf(errfile, " ERROR 2: failed to open output file %s\n", log);
-  if(errfile != stderr) fclose(errfile);
-  return 2;
- }
- outmode omode =
- {
-  format,
-  recurse,
-  outfile,
-  "",
-  0,
-  ninfname - 1
- };
-
- /* memory for time data */
- clock_t *inputloaded    = (clock_t*)malloc(sizeof(clock_t)*ninfname);
- clock_t *fileprocessed  = (clock_t*)malloc(sizeof(clock_t)*ninfname);
- clock_t *outputsent     = (clock_t*)malloc(sizeof(clock_t)*ninfname);
- clock_t *memoryreleased = (clock_t*)malloc(sizeof(clock_t)*ninfname);
-
- unsigned int j;
- for(j = 0; j < ninfname; j++)
- {
-  unsigned int prefixlength = strlen(prefix) + 1;
-  char *fullname = malloc(prefixlength + strlen(infnamebatch[j]));
-  memcpy(fullname, prefix, prefixlength);
-  strcat(fullname, infnamebatch[j]);
-  FILE* dicom = strcmp("-", infnamebatch[j]) ? fopen(fullname, "r") : stdin;
-
-  if(dicom == NULL) 
-  {
-   fprintf(errfile, " ERROR 3: failed to open input file %s\n", infnamebatch[j]);
-   if(errfile != stderr) fclose(errfile);
-   return 3;
-  }
-
-  free(fullname);
-
-  dcmbuff *buff; dcmbuff_loaddicom(&buff, dicom);
-  if(dicom == stdin ? 0 : fclose(dicom))
-   fprintf(errfile, " ERROR 4: failed to close input file %s; continuing\n", infnamebatch[j]);
-  inputloaded[j] = clock();
-
-  dcmelarr *metaarr; dcmelement_mkarr(&metaarr);
-  tsmode mode;
-  if(procfilemeta(metaarr, &mode, buff)) 
-  {
-   fprintf(errfile, " ERROR 5: failed to process file metadata elements\n");
-   if(errfile != stderr) fclose(errfile);
-   return 5;
-  }
-
-  dcmelarr *bodyarr; dcmelement_mkarr(&bodyarr);
-  if(procfilebody(bodyarr, mode, buff))
-  {
-   fprintf(errfile, " ERROR 6: failed to process file body elements\n");
-   if(errfile != stderr) fclose(errfile);
-   return 6;
-  }
-
-  dcmbuff_del(buff);
-
-  unsigned int i;
-  if(omode.r)
-  {
-   for(i = 0; i < bodyarr->p; i++)
-    if(bodyarr->els[i] != NULL)
-     dcmtree_recursivehang(&bodyarr->els[i]);
-   dcmtree_trim(bodyarr);
-  }
-  fileprocessed[j] = clock();
-
-  omode.tag = infnamebatch[j];
-  omode.current = j;
-  if(dcmoutput_out(omode, metaarr, bodyarr))
-  {
-   fprintf(errfile, " ERROR 7: failed to write to file %s\n", log);
-   if(errfile != stderr) fclose(errfile);
-   return 7;
-  }
-  outputsent[j] = clock();
-
-  if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 8: failed to free metadata array; continuing\n");
-  if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 9: failed to free body array; continuing\n");
-  memoryreleased[j] = clock();
- }
-
- clock_t cputime = clock();
- time(&now);
- char cputimestr[20];
-
- for(j = 0; j < ninfname; j++)
- {
-  formatcputime(cputimestr, inputloaded[j]);
-  fprintf(errfile, " %s -- Input file loaded %s\n", cputimestr, infnamebatch[j]);
-  formatcputime(cputimestr, fileprocessed[j]);
-  fprintf(errfile, " %s -- File processed\n", cputimestr);
-  formatcputime(cputimestr, outputsent[j]);
-  fprintf(errfile, " %s -- Output written\n", cputimestr);
-  formatcputime(cputimestr, memoryreleased[j]);
-  fprintf(errfile, " %s -- Element arrays released\n", cputimestr);
- }
-
- formatcputime(cputimestr, cputime);
- fprintf(errfile, "%011ld  : %s   : Operations completed successfully\n", now, cputimestr);
-
- if(errfile == stderr ? 0 : fclose(errfile)) {perror("10: parsefile; continuing");}
+ dcmlog_log(l_write, NULL, "Operations complete", clock());
+ dcmlog_log(l_close, NULL, NULL, 0);
 
  return 0;
 }
-
-#endif
 
 int main(int argc, char** argv)
 {

@@ -11,12 +11,14 @@
 
 #define DCMSPECIALTAG 1
 
-#define dcmspecialtag_ischildable(el) ((el) != NULL && ((el)->tag == dcmspecialtag_ITEM || dcmspecialtag_issq((el)->vr,(el)->tag)))
+#define dcmspecialtag_ischildable(el) ((el) && ((el)->tag == dcmspecialtag_ITEM || dcmspecialtag_issq((el)->vr,(el)->tag)))
 
-const int dcmspecialtag_ITEM = 0xFFFEE000;
-const int dcmspecialtag_ITEMDELIM = 0xFFFEE00D;
-const int dcmspecialtag_SEQUENCEDELIM = 0xFFFEE0DD;
-const int dcmspecialtag_TSUID = 0x00020010;
+const byte4 dcmspecialtag_ITEM = 0xFFFEE000;
+const byte4 dcmspecialtag_ITEMDELIM = 0xFFFEE00D;
+const byte4 dcmspecialtag_MEDIASTORAGESOPCLASSID = 0x00020002;
+const byte4 dcmspecialtag_MEDIASTORAGESOPINSTANCEUID = 0x00020003;
+const byte4 dcmspecialtag_SEQUENCEDELIM = 0xFFFEE0DD;
+const byte4 dcmspecialtag_TSUID = 0x00020010;
 
 /*
  From DICOM standard part 5 section 7.1.2
@@ -81,15 +83,13 @@ int dcmspecialtag_issq(byte1 *vr, byte4 tag)
  return 0;
 }
 
-int dcmspecialtag_tsdecode(tsmode *mode, byte1* tsuid, int l)
+void dcmspecialtag_tsdecode(tsmode *mode, byte1* tsuid, int l)
 {
- if(mode == NULL) return perror("1:dcmspecialtag_tsdecode"), 1;
-
  if(l == 18)
  {
   mode->v = v_implicit;
   mode->e = e_little;
-  return 0;
+  return;
  }
 
  byte1 important = tsuid[18];
@@ -108,6 +108,4 @@ int dcmspecialtag_tsdecode(tsmode *mode, byte1* tsuid, int l)
   mode->v = v_implicit;
   mode->e = e_little;
  }
-
- return 0;
 }

@@ -20,9 +20,9 @@
 const int dcmendian_ENDIANINT = 1;
 const char *dcmendian_SYSISLITTLE = (char*)&dcmendian_ENDIANINT;
 
-int dcmendian_swap(byte1* toswap, int size)
+int dcmendian_swap(byte1* toswap, unsigned int size)
 {
- if(toswap == NULL || size < 0) {perror("1:dcmendian_swap"); return 1;}
+ if(!toswap) return perror("1:dcmendian_swap -- toswap is null"), 1;
 
  int i;
  for(i=0; i < size/2; i++)

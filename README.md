@@ -73,6 +73,8 @@ DICOM parser in ANSI compliant C
     --JSON
 -l, --log     : logfile (append); some errors are printed to stderr anyway
                 default is stderr
+-m, --mode    : mode of operations; tr = translate | rn = rename
+    --op
 -o, --output  : file to write to (kablam!) stdout is default
 -p, --prefix  : input file prefix
 -r, --recurse : engage recursive mode; hang children

@@ -1,15 +1,15 @@
-source := source/dcmdirectory.c source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmfile.c source/dcmlog.c source/dcmoutput.c source/dcmproc.c source/dcmspecialtag.c source/dcmtree.c source/dcmtypes.c source/hougasargs.c source/sqtags.c 
+source := source/dcmdirectory.c source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmlog.c source/dcmname.c source/dcmoutput.c source/dcmproc.c source/dcmspecialtag.c source/dcmtree.c source/dcmtypes.c source/hougasargs.c source/sqtags.c source/soptable.c
 
 all: dcmproc
 
 dcmproc: $(source)
 	@echo 'Compiling dcmproc'
-	if [ -f /usr/include/unistd.h ]; then dirent="-D USEDIRENT=1"; fi &&\
+	if [ -f /usr/include/dirent.h ]; then dirent="-D USEDIRENT=1"; fi &&\
 	if [ -f /usr/include/stdint.h ]; then stdint="-D USESTDINT=1"; fi &&\
 	gcc -Wall -Werror -ansi $$dirent $$stdint -o dcmproc source/dcmproc.c
 
 tmp/part6table.htm:
-	echo 'grabbing html from .../chtml/part6/chapter_{{7..9},6}.html'
+	@echo 'Grabbing html from https://dicom.nema.org/.../chtml/part6/chapter_{{7..9},6}.html'
 	bash -c 'curl -s https://dicom.nema.org/medical/dicom/current/output/chtml/part06/chapter_{{7..9},6}.html' > tmp/part6table.htm
 
 tmp/part6table-win.htm: tmp
@@ -51,9 +51,29 @@ source/thetable.c: tmp/thetable
 	echo 'const void *THETABLE[] = {ALLTAGS, ALLNAMES, ALLKEYWORDS, ALLVRS, ALLVMS};' >> source/thetable.c
 	echo 'const int NTHETABLE = (sizeof(ALLTAGS)/sizeof(byte4));' >> source/thetable.c
 
+source/soptable.c: tmp/soptable
+	@echo 'Unrolling soptable'
+	awk 'BEGIN{print "const char *SOPCLASSNAME[] =\n{"} {print "\""$$1"\","}' tmp/soptable |\
+	sed '$$s:,:\n};\n:' > source/soptable.c
+	awk 'BEGIN{print "const char *SOPCLASSUID[] =\n{"} {print "\""$$2"\","}' tmp/soptable |\
+	sed '$$s:,:\n};\n:' >> source/soptable.c
+	echo 'const unsigned int NSOP = sizeof(SOPCLASSNAME)/sizeof(char*);' >> source/soptable.c
+
+tmp/soptable: tmp/part4sectB5.htm
+	@echo 'Stripping HTML from part4secB5.htm'
+	sed -z 's:\n:__:g' part4sectB5.htm |\
+	grep -Po '<tbody>.*?</tbody>' |\
+	grep -Po '<tr.*?</tr>' |\
+	sed 's:<[^>]*>:___:g; s:  *:_:g;' |\
+	awk -F '___+' '{print $$2,$$3}' > tmp/soptable
+
+tmp/part4sectB5.htm:
+	@echo 'Grabbing SOP class UID table from https://dicom.nema.org/.../chtml/part04/sect_B.5.html'
+	curl -s -o tmp/part4sectB5.htm 'https://dicom.nema.org/medical/dicom/current/output/chtml/part04/sect_B.5.html'
+
 clean:
-	@echo 'Cleaning, but not removing tmp/part6table.htm'
-	rm dcmproc tmp/thetable source/sqtags.c source/thetable.c
+	@echo 'Cleaning, but not removing tmp/*.htm'
+	rm dcmproc tmp/thetable tmp/soptable source/sqtags.c source/thetable.c source/soptable.c
 
 clean-win:
 	@echo 'WINDOWS: cleaning'

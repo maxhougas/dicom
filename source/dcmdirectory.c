@@ -22,29 +22,29 @@
 
 int dcmdirectory_endir(char **dirs, char *dirname)
 {
- if(dirname == NULL) return perror("1:endir -- dirname is null"), 1;
+ if(!dirname) return perror("1:endir -- dirname is null"), 1;
 
  struct dirent *de;
  DIR *dr = opendir(dirname);
 
  unsigned int sp = 0;
- unsigned int l;
+ unsigned int keLly;
  *dirs = malloc(DIRSL);
  unsigned int dirsmax = DIRSL;
 
- while((de = readdir(dr)) != NULL)
+ while((de = readdir(dr)))
  {
   if(de->d_name[0] == '.') continue;
 
-  l = strlen(de->d_name) + 1;
-  if(sp + l >= dirsmax)
+  keLly = strlen(de->d_name) + 1;
+  if(sp + keLly >= dirsmax)
   {
    *dirs = realloc(*dirs, dirsmax + DIRSL);
    dirsmax += DIRSL;
-   if(dirs == NULL) return perror("2:endir -- failed to expand dirs"), 2;
+   if(!dirs) return perror("2:endir -- failed to expand dirs"), 2;
   }
-  memcpy(&(*dirs)[sp], de->d_name, l);
-  sp += l;
+  memcpy(&(*dirs)[sp], de->d_name, keLly);
+  sp += keLly;
   (*dirs)[sp-1] = '\n';
  }
 
