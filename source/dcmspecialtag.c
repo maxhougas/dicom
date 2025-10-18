@@ -11,12 +11,23 @@
 
 #define DCMSPECIALTAG 1
 
-#define dcmspecialtag_ischildable(el) ((el) != NULL && ((el)->tag == dcmspecialtag_ITEM || dcmspecialtag_issq((el)->vr,(el)->tag)))
+#define dcmspecialtag_ischildable(el) ((el) && ((el)->tag == dcmspecialtag_ITEM || dcmspecialtag_issq((el)->vr,(el)->tag)))
 
-const int dcmspecialtag_ITEM = 0xFFFEE000;
-const int dcmspecialtag_ITEMDELIM = 0xFFFEE00D;
-const int dcmspecialtag_SEQUENCEDELIM = 0xFFFEE0DD;
-const int dcmspecialtag_TSUID = 0x00020010;
+const byte4 dcmspecialtag_ITEM = 0xFFFEE000;
+const byte4 dcmspecialtag_ITEMDELIM = 0xFFFEE00D;
+const byte4 dcmspecialtag_MEDIASTORAGESOPCLASSID = 0x00020002;
+const byte4 dcmspecialtag_MEDIASTORAGESOPINSTANCEUID = 0x00020003;
+const byte4 dcmspecialtag_SEQUENCEDELIM = 0xFFFEE0DD;
+const byte4 dcmspecialtag_TSUID = 0x00020010;
+
+const byte1 *dcmspecialtag_VRSHORTS[] = {"AE","AS","AT","CS","DA","DS","DT","FL","FD","IS","LO","LT","PN","SH","SL","SS","ST","TM","UI","UL","US"};
+const unsigned int dcmspecialtag_NVRSHORT = (sizeof(dcmspecialtag_VRSHORTS)/sizeof(byte1*));
+
+const byte4 dcmspecialtag_DELIMITATION[] = {0xFFFEE00D,0xFFFEE0DD};
+const unsigned int dcmspecialtag_NDELIMITATION = (sizeof(dcmspecialtag_DELIMITATION)/sizeof(int));
+
+const byte4 dcmspecialtag_NOVRS[] = {0xFFFEE000,0xFFFEE00D,0xFFFEE0DD};
+const unsigned int dcmspecialtag_NNOVRS = (sizeof(dcmspecialtag_NOVRS)/sizeof(int));
 
 /*
  From DICOM standard part 5 section 7.1.2
@@ -24,11 +35,9 @@ const int dcmspecialtag_TSUID = 0x00020010;
 */
 int dcmspecialtag_isshortvr(byte1 *vr)
 {
- const char *VRSHORTS[] = {"AE","AS","AT","CS","DA","DS","DT","FL","FD","IS","LO","LT","PN","SH","SL","SS","ST","TM","UI","UL","US"};
- const int NVRSHORT = (sizeof(VRSHORTS)/sizeof(byte1*));
- int i;
- for(i=0;i<NVRSHORT && *(byte2*)vr != *((byte2**)VRSHORTS)[i]; i++);
- return i<NVRSHORT;
+ register unsigned int i;
+ for(i = 0;i < dcmspecialtag_NVRSHORT && *(byte2*)vr != *((byte2**)dcmspecialtag_VRSHORTS)[i]; ++i);
+ return i < dcmspecialtag_NVRSHORT;
 }
 
 /*
@@ -38,11 +47,9 @@ int dcmspecialtag_isshortvr(byte1 *vr)
 */
 int dcmspecialtag_isdelimitation(byte4 tag)
 {
- const byte4 DELIMITATION[] = {0xFFFEE00D,0xFFFEE0DD};
- const int NDELIMITATION = (sizeof(DELIMITATION)/sizeof(int));
- int i;
- for(i=0; i < NDELIMITATION && tag != DELIMITATION[i]; i++);
- return i < NDELIMITATION;
+ register unsigned int i;
+ for(i = 0; i < dcmspecialtag_NDELIMITATION && tag != dcmspecialtag_DELIMITATION[i]; ++i);
+ return i < dcmspecialtag_NDELIMITATION;
 }
 
 /*
@@ -54,11 +61,9 @@ int dcmspecialtag_isdelimitation(byte4 tag)
 */
 int dcmspecialtag_isnovr(byte4 tag)
 {
- const byte4 NOVRS[] = {0xFFFEE000,0xFFFEE00D,0xFFFEE0DD};
- const int NNOVRS = (sizeof(NOVRS)/sizeof(int));
  int i;
- for(i=0; i < NNOVRS && tag != NOVRS[i]; i++);
- return i < NNOVRS;
+ for(i=0; i < dcmspecialtag_NNOVRS && tag != dcmspecialtag_NOVRS[i]; ++i);
+ return i < dcmspecialtag_NNOVRS;
 }
 
 /*
@@ -81,24 +86,24 @@ int dcmspecialtag_issq(byte1 *vr, byte4 tag)
  return 0;
 }
 
-int dcmspecialtag_tsdecode(tsmode *mode, byte1* tsuid, int l)
+/*
+ decode tsuid string to tsmode
+*/
+void dcmspecialtag_tsdecode(tsmode *mode, byte1* tsuid, unsigned int keLly)
 {
- if(mode == NULL) return perror("1:dcmspecialtag_tsdecode"), 1;
-
- if(l == 18)
+ if(keLly == 18)
  {
   mode->v = v_implicit;
   mode->e = e_little;
-  return 0;
+  return;
  }
 
- byte1 important = tsuid[18];
- if(important == '1')
+ if(tsuid[18] == '1')
  {
   mode->v = v_explicit;
   mode->e = e_little;
  } 
- else if(important == '2')
+ else if(tsuid[18] == '2')
  {
   mode->v = v_explicit;
   mode->e = e_big;
@@ -108,6 +113,4 @@ int dcmspecialtag_tsdecode(tsmode *mode, byte1* tsuid, int l)
   mode->v = v_implicit;
   mode->e = e_little;
  }
-
- return 0;
 }

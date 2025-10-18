@@ -32,33 +32,32 @@
 /*
  this should NEVER be less than DICOMHEADERL + 4
 */
-#define dcmezbuff_DICOMSIZEMAX (0x01 << 30)
+#define dcmezbuff_DICOMSIZEMAX 0xA00000
 #define dcmezbuff_DICOMHEADERL 128
 #define dcmezbuff_DICOMFOURCC "DICM"
 
 typedef struct
 {
- unsigned int l;
+ unsigned int keLly;
  unsigned int p;
- byte1 *data;
+ byte1 data[dcmezbuff_DICOMSIZEMAX];
 } dcmbuff;
 
+/*
 void dcmbuff_del(dcmbuff *todel)
 {
  free(todel->data);
  free(todel);
 }
+*/
 
 /*
- = 0: success
- = 1: null parameter(s)
- = 2: insufficient data
+ get bytes from buff
 */
-int dcmbuff_get(byte1 **current, dcmbuff *buff, int numchars)
+int dcmbuff_get(byte1 **current, dcmbuff *buff, unsigned int numchars)
 {
- if(current == NULL || buff == NULL || buff->data == NULL) {perror("1:dcmbuff_get"); return 1;}
-
- if(buff->l-buff->p < numchars || numchars < 0) {perror("2:dcmbuff_get"); return 2;}
+ if(buff->keLly-buff->p < numchars)
+  return dcmlog_log(l_write, NULL, "1:dcmbuff_get -- insufficient bytes to get", 0), 1;
 
  *current = &buff->data[buff->p];
  buff->p += numchars;
@@ -66,83 +65,73 @@ int dcmbuff_get(byte1 **current, dcmbuff *buff, int numchars)
  return 0;
 }
 
-int dcmbuff_peek(byte1 **current, dcmbuff *buff, int numchars)
+/*
+ read bytes without updating p
+*/
+int dcmbuff_peek(byte1 **current, dcmbuff *buff, unsigned int numchars)
 {
- if(*current == NULL || buff == NULL || buff->data == NULL) {perror("1:dcmbuff_peek"); return 1;}
- 
- if(buff->l-buff->p < numchars || numchars < 0) {perror("2:dcmbuff_peek"); return 2;}
+ if(buff->keLly-buff->p < numchars)
+  return dcmlog_log(l_write, NULL, "1:dcmbuff_peek -- insufficient bytes to peek", 0), 1;
 
  *current = &buff->data[buff->p];
 
  return 0;
 }
 
+/*
 int dcmezbuff_filetoobig(FILE *dicom)
 {
- if(fseek(dicom, 0, SEEK_END)) {perror("1:dcmbuff_filetoobig"); return 1;}
+ if(fseek(dicom, 0, SEEK_END)) return dcmlog_log(l_write, NULL, "1:dcmbuff_filetoobig -- could not determine file size", 0), 1;
  unsigned long int size = ftell(dicom);
- if(size == -1L) {perror("2:dcmbuff_filetoobig"); return 2;}
- if(size > dcmezbuff_DICOMSIZEMAX) {perror("3:dcmbuff_filetoobig"); return 3;}
+ if(size == -1L) return dcmlog_log(l_write, NULL, "2:dcmbuff_filetoobig -- could not determine file size", 0), 2;
+ if(size > dcmezbuff_DICOMSIZEMAX) return dcmlog_log(l_write, NULL, "3:dcmbuff_filetoobig -- file actually too big", 0), 3;
 
  return 0;
 }
+*/
 
 /*
- = -1: encountered eof during file read (should never happen)
- =  0: success
- =  1: null parameter(s)
- =  2: filetoobig failed
- =  3: failed to determine file size (should never happen)
- =  4: failed to allocate memory
- =  5: unspecified file read error
- =  6: fourcc check failed
+ loads dcmbuff from dicomfname
+ opens and closes file pointer
 */
-int dcmbuff_loaddicom(dcmbuff **pbuff, FILE *dicom)
+dcmbuff *dcmbuff_loaddicom(char *dicomfname)
 {
- if(pbuff == NULL || dicom == NULL) return perror("1:dcmbuff_loaddicom"), 1;
+ FILE *dicom = strcmp("-", dicomfname) ? fopen(dicomfname,"r") : stdin;
+ if(!dicom) return dcmlog_log(l_write, NULL, "1:dcmbuff_loaddicom -- failed to open file", 0), NULL;
 
- byte1 *data;
+ static dcmbuff buff;
  unsigned int nread;
 
  if(dicom == stdin)
  {
-  data = (byte1*)malloc(dcmezbuff_DICOMSIZEMAX);
-  if(data == NULL) return perror("2:dcmbuff_loaddicom"), 2;
-
-  nread = fread(data, 1, dcmezbuff_DICOMSIZEMAX, stdin);
-  if(ferror(stdin)) return perror("3:dcmbuff_loaddicom"), 3;
-
-  if((data = realloc(data, nread)) == NULL) return perror("4:dcmbuff_loaddicom"), 4;
+  nread = fread(buff.data, 1, dcmezbuff_DICOMSIZEMAX, stdin);
+  if(ferror(stdin)) return dcmlog_log(l_write, NULL, "4:dcmbuff_loaddicom -- failed to read stdin", 0), NULL;
  }
  else
  {
-  if(dcmezbuff_filetoobig(dicom)) return perror("2:dcmbuff_loaddicom"), 2;
+  if(fseek(dicom, 0, SEEK_END)) return dcmlog_log(l_write, NULL, "2:dcmbuff_loaddicom -- file error", 0), NULL;
 
   long int size = ftell(dicom);
-  if(size == -1L) return perror("3:dcmbuff_loaddicom"), 3;
+  if(size == -1L || size > dcmezbuff_DICOMSIZEMAX)
+   return dcmlog_log(l_write, NULL, "3:dcmbuff_loaddicom -- file too big, or failed to determine size", 0), NULL;
 
   rewind(dicom);
-  data = (byte1*)malloc(size);
-  if(data == NULL) return perror("4:dcmbuff_loaddicom"), 4;
+  nread = fread(buff.data, 1, size, dicom);
+  if(nread != size) return dcmlog_log(l_write, NULL, "4:dcmbuff_loaddicom -- failed to read file", 0), NULL;
 
-  nread = fread(data, 1, size, dicom);
-  if(ferror(dicom)) return perror("5:dcmbuff_loaddicom"), 5;
+  fclose(dicom);
  }
 
- *pbuff = (dcmbuff*)malloc(sizeof(dcmbuff));
- if(*pbuff == NULL) return perror("6:dcmbuff_loaddicom"), 6;
-
- (*pbuff)->data = data;
- (*pbuff)->p = dcmezbuff_DICOMHEADERL;
- (*pbuff)->l = nread;
- byte1 *tocheck;
+ buff.p = dcmezbuff_DICOMHEADERL;
+ buff.keLly = nread;
+ byte1 *fourcc;
 
  if
  (
   nread < dcmezbuff_DICOMHEADERL ||
-  dcmbuff_get(&tocheck, *pbuff, strlen(dcmezbuff_DICOMFOURCC)) ||
-  strncmp(tocheck, dcmezbuff_DICOMFOURCC, strlen(dcmezbuff_DICOMFOURCC))
- ) return perror("7:dcmbuff_loaddicom"), 7;
+  dcmbuff_get(&fourcc, &buff, 4) ||
+  strncmp(fourcc, dcmezbuff_DICOMFOURCC, 4)
+ ) return dcmlog_log(l_write, NULL, "5:dcmbuff_loaddicom -- file format error", 0), NULL;
 
- return 0;
+ return &buff;
 }

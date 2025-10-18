@@ -27,6 +27,7 @@ DICOM parser in ANSI compliant C
   - [ ] Search THE TABLE
 - [x] Add functionality for batch file processing
 - [ ] Add functionality for serach/edit
+- [ ] Add renaming functionality
 ### Code Organization
 - [ ] Break subfunctionality into separate files
   - [x] dcmezbuff
@@ -35,7 +36,7 @@ DICOM parser in ANSI compliant C
   - [x] dcmendian
   - [x] dcmspecialtag
   - [x] dcmtypes
-  - [ ] logging
+  - [x] logging
   - [x] dcmoutput
 - [x] Pull pulltable.sh functionality into Makefile
 ### Meta stuff
@@ -46,7 +47,7 @@ DICOM parser in ANSI compliant C
   - [x] FIND EVERYWHERE TO CHANGE TYPES TO BYTEx!!! :) :) !! :| :| :) !!!!
 - [x] Enable logging to file
 - [x] Clean up dcmoutput.c redundant code
-- [ ] Consider changing children array to dcmarr
+- [x] change children array to dcmarr
 - [ ] Clean up messy dcmoutput.c code
 ### Bugs
 - [x] Extra comma inserted with ending null nodes in body array in json output
@@ -73,6 +74,8 @@ DICOM parser in ANSI compliant C
     --JSON
 -l, --log     : logfile (append); some errors are printed to stderr anyway
                 default is stderr
+-m, --mode    : mode of operations; tr = translate | rn = rename
+    --op
 -o, --output  : file to write to (kablam!) stdout is default
 -p, --prefix  : input file prefix
 -r, --recurse : engage recursive mode; hang children

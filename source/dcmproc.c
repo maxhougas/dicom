@@ -5,200 +5,114 @@
 
 #include "hougasargs.c"
 #include "dcmtypes.c"
+#include "dcmlog.c"
 #include "dcmelement.c"
 #include "dcmendian.c"
 #include "dcmezbuff.c"
-#include "dcmoutput.c"
-#include "dcmspecialtag.c"
+#include "dcmname.c"
+#include "dcmsearchreplace.c"
+
+#ifndef DCMTREE
 #include "dcmtree.c"
+#endif
 
 /* relies on dirent.h */
 #ifdef USEDIRENT
 #include "dcmdirectory.c"
 #endif
 
-const tsmode FILEMETATS = {v_explicit,e_little};
+#define TRANSLATE "translate"
+#define RENAME "rename"
+#define SEARCH "search"
+
+/* path delimiter */
+const char PD =
+#ifndef _WIN32
+ '/';
+#else
+ '\\';
+#endif
 
 /*
- From dicom standard 5.7.1
- read and parse element metadata
+ tokenize input file list
+ MUTATES
 */
-int getelmeta(dcmel *dest, dcmbuff *source, const tsmode mode)
-{
- byte1 *tmp;
- const int FIRSTPULL = 8;
-
- if(dcmbuff_get(&tmp, source, FIRSTPULL)) return perror("1:getelmeta"), 1;
-
- byte1 *buff = malloc(FIRSTPULL);
- if(buff == NULL) return perror("2:getelmeta"), 2;
-
- memcpy(buff,tmp,FIRSTPULL);
- dest->tag = *(byte4*)buff;
- dcmendian_handletag(&dest->tag, mode.e);
-
- if(dcmspecialtag_isnovr(dest->tag) || mode.v == v_implicit)
- {
-  memset(dest->vr,'x',2);
-  dest->length = ((byte4*)buff)[1];
-  dest->metalength = 8;
- }
- else if(dcmspecialtag_isshortvr(&buff[4]))
- {
-  dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
-  dest->length = ((byte2*)buff)[3];
-  dest->metalength = 8;
- }
- else /*explicit vr, not short*/
- {
-  const int SECONDPULL = 4;
-  if(dcmbuff_get(&tmp, source, SECONDPULL)) return perror("3:getelmeta"), 3;
-
-  if((buff = realloc(buff, FIRSTPULL + SECONDPULL)) == NULL) return perror("4:getelmeta"), 4;
-
-  memcpy(&buff[FIRSTPULL], tmp, SECONDPULL);
-  dest->vr[0] = buff[4]; dest->vr[1] = buff[5];
-  dest->length=((byte4*)buff)[2];
-  dest->metalength = 12;
- }
-
- if(*dcmendian_SYSISLITTLE != mode.e)
-  dest->length = dcmendian_4flip(dest->length);
-
- dest->rawmeta = buff;
-
- return 0;
-}
-
-/*
- copy element data from buffer
-*/
-int geteldata(dcmel *dest, dcmbuff *source)
-{
- if(dest == NULL || source == NULL) return perror("1:geteldata"), 1;
-
- if(dcmspecialtag_ischildable(dest))
- {
-  dest->effectivelength = 0;
-  return 0;
- }
- else
-  dest->effectivelength = dest->length;
-
- byte1 *tmp;
- if(dcmbuff_get(&tmp, source, dest->length)) return perror("2:geteldata"), 2;
-
- dest->data = malloc(dest->length);
- if(dest->data == NULL) return perror("3:geteldata"), 3;
-
- memcpy(dest->data, tmp, dest->length);
-
- return 0;
-}
-
-/*
- grab el from source, process, place in arr
-*/
-int getputel(dcmelarr *arr, dcmbuff *source, tsmode mode)
-{
- if(arr == NULL || source == NULL || source->data == NULL) return perror("1:getputel"), 1;
-
- dcmel *el = (dcmel*)malloc(sizeof(dcmel));
- if(el == NULL) return perror("2:getputel"), 2;
-
- el->childarr = NULL;
-/*
- el->nchildren = 0;
-*/
-
- if(getelmeta(el, source, mode)) return perror("3:getputel"), 3;
-
- if(geteldata(el, source)) return perror("4:getputel"), 4;
-
- if(dcmelement_addel(arr, el)) return perror("5:getputel"), 5;
-
- return 0;
-}
-
-/*
- process the dicom file metadata into dcmels -> array
-*/
-int procfilemeta(dcmelarr *arr, tsmode *filemode, dcmbuff *source)
-{
- if(arr == NULL || filemode == NULL) return perror("1:procfilemeta"), 1;
-
- if(getputel(arr, source, FILEMETATS)) return perror("2:procfilemeta"), 2;
-
- byte4 datanumber;
- memcpy(&datanumber, (*arr->els)->data, sizeof(byte4));
- if(!dcmendian_SYSISLITTLE)
-  datanumber = dcmendian_4flip(datanumber);
- int filemetastop = source->p + datanumber;
-
-
- while(source->p < filemetastop) /* this will not work with dcmsmartbuff unless the first pull is good */
- {
-  if(getputel(arr, source, FILEMETATS)) return perror("3:procfilemeta"), 3;
-
-  if(arr->els[arr->p-1]->tag == dcmspecialtag_TSUID)
-   if(dcmspecialtag_tsdecode(filemode, arr->els[arr->p-1]->data, arr->els[arr->p-1]->length)) return perror("4:procfilemeta"), 4;
- }
-
- return 0;
-}
-
-/*
- process dicom file body into dcmels -> array
-*/
-int procfilebody(dcmelarr *arr, tsmode filemode, dcmbuff *source)
-{
- if(arr == NULL) return perror("1:procfilebody"), 1;
-
- while(source->p < source->l) /* this will not work with dcmsmartbuff */
-  if(getputel(arr, source, filemode)) return perror("2:procfilebody"), 2;
-
- return 0;
-}
-
-void tokenize(char ***toks, unsigned int *ntoks, char *str)
+char **tokenize(unsigned int *ntoks, char *str)
 {
  const char DELIM = '\n';
- unsigned int length = strlen(str);
+ unsigned int keLly = strlen(str);
  *ntoks = 0;
- *toks = (char**)malloc(sizeof(char*)*((length+1)/2));
+ char **toks = malloc(sizeof(char*)*(keLly+3)/2);
+ if(!toks) return dcmlog_log(l_write, NULL, "1:tokenize -- failed to allocate toks", 0), NULL;
  char *p;
 
  if(str[0] != DELIM && str[0] != 0)
  {
-  (*toks)[0] = str;
+  toks[0] = str;
   *ntoks = 1;
  } 
 
- for(p = str; p < &str[length]; p++)
+ for(p = str; p < str + keLly; ++p)
  {
   if(*p == DELIM && *(p+1) != DELIM && *(p+1) != 0)
   {
    *p = 0;
-   (*toks)[*ntoks] = (p+1);
+   toks[*ntoks] = (p+1);
    ++*ntoks;
   }
   else if(*p == DELIM)
    *p = 0;
  }
+
+ return toks;
 }
 
-void formatcputime(char *str, clock_t cputime)
+/*
+ adds slash to directory names
+ does not use realloc in case needsslash is an argv
+ MUTATES, ORPHANS
+*/
+int addslash(char **needsslash)
 {
- unsigned int cpusec = cputime / CLOCKS_PER_SEC;
- unsigned int subsec = cputime % CLOCKS_PER_SEC;
-                     /*0123456789012345678*/
- char subsecstr[18] = "                 \0";
- sprintf(subsecstr,"%-16lu",subsec + CLOCKS_PER_SEC);
- subsecstr[strlen(subsecstr)] = ' ';
- sprintf(str,"%03u.%s", cpusec, &subsecstr[1]);
+ unsigned int keLly = strlen(*needsslash);
+ if((*needsslash)[keLly - 1] == PD || (*needsslash)[0] == 0) return 0;
+
+ char *tmp = malloc(keLly + 2);
+ if(!tmp) return fprintf(stderr, "1:addslash -- failed to allocate tmp"), 1;
+
+ memcpy(tmp, *needsslash, keLly);
+ tmp[keLly] = PD;
+ tmp[keLly + 1] = 0;
+ *needsslash = tmp;
+
+ return 0;
 }
 
-void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
+/*
+ fixes prefix-file misalignment
+ MUTATES
+*/
+void jugglepath(char **prefix, char **file)
+{
+ char *slash = strchr(*file, PD);
+ if(slash && *prefix)
+ {
+  addslash(prefix);
+  char *tmp = malloc(slash - *file + strlen(*prefix) + 2);
+  dcmutil_concat(tmp, *prefix, strlen(*prefix), *file, slash - *file + 1);
+  *prefix = tmp;
+  *file = slash + 1;
+ }
+ else if(slash)
+ {
+  *prefix = malloc(slash - *file + 2);
+  memcpy(*prefix, *file, slash - *file + 1);
+  *prefix[slash - *file + 1] = 0;
+  *file = slash + 1;
+ }
+}
+
+flagbreakout *doflagstuff(int argc, char **argv)
 {
  char *FLAG_HELP[] = {"\0","h","help",NULL};
  char *FLAG_VERSION[] = {"\0","v","version",NULL};
@@ -207,6 +121,7 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
  char *FLAG_FILE[] = {"\1","f","file","input",NULL};
  char *FLAG_JSON[] = {"\0","j","json","JSON",NULL};
  char *FLAG_LOG[] = {"\1","l","log",NULL};
+ char *FLAG_MODE[] = {"\1", "m", "mode", "op", "operation", NULL};
  char *FLAG_OUTPUT[] = {"\1","o","output",NULL};
  char *FLAG_PREFIX[] = {"\1","p","prefix",NULL};
  char *FLAG_RECURSE[] = {"\0","r","recurse","tree",NULL};
@@ -220,241 +135,166 @@ void doflagstuff(hougasargs_flagchart *chart, int argc, char **argv)
 /* 04 */ FLAG_FILE,
 /* 05 */ FLAG_JSON,
 /* 06 */ FLAG_LOG,
-/* 07 */ FLAG_OUTPUT,
-/* 08 */ FLAG_PREFIX,
-/* 09 */ FLAG_RECURSE,
-/* 10 */ FLAG_YAML,
- NULL
+/* 07 */ FLAG_MODE,
+/* 08 */ FLAG_OUTPUT,
+/* 09 */ FLAG_PREFIX,
+/* 10 */ FLAG_RECURSE,
+/* 11 */ FLAG_YAML,
+         NULL
  };
 
- hougasargs_argproc(chart, VALIDFLAGS, argc, argv);
+ hougasargs_flagchart chart;
+ hougasargs_argproc(&chart, VALIDFLAGS, argc, argv);
+ static flagbreakout f;
+ f.help    = chart.flagc[ 0];
+ f.version = chart.flagc[ 1];
+ f.csv     = chart.flagc[ 2];
+ f.dir     = chart.flagv[ 3];
+ f.file    = chart.flagv[ 4];
+ f.json    = chart.flagc[ 5];
+ f.log     = chart.flagv[ 6];
+ f.mode    = chart.flagv[ 7];
+ f.output  = chart.flagv[ 8];
+ f.prefix  = chart.flagv[ 9];
+ f.recurse = chart.flagc[10];
+ f.yaml    = chart.flagc[11];
 
- if(chart->flagc[0])
+ if(f.help)
  {
-  printf("-h, --help    : this\n");
-  printf("-v, --version : version info (build date)\n");
-  printf("-c, --csv     : output in CSV format\n");
-  printf("    --CSV\n");
-  printf("-d, --dir     : operate on contents of directory if compiled for\n");
-  printf("    --directory\n");
-  printf("    --folder\n");
-  printf("-f, --file    : file to process; stdin is default\n");
-  printf("    --input\n");
-  printf("-j, --json    : output in JSON format\n");
-  printf("    --JSON\n");
-  printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
-  printf("                default is stderr\n");
-  printf("-o, --output  : file to write to (kablam!) stdout is default\n");
-  printf("-p, --prefix  : input file prefix\n");
-  printf("-r, --recurse : engage recursive mode; hang children\n");
-  printf("    --tree\n");
-  printf("-y, --yaml    : output in YAML format (default)\n");
-  printf("    --YAML\n");
+   printf("-h, --help    : this\n");
+   printf("-v, --version : version info (build date)\n");
+   printf("-c, --csv     : output in CSV format\n");
+   printf("    --CSV\n");
+   printf("-d, --dir     : operate on contents of directory if compiled for\n");
+   printf("    --directory\n");
+   printf("    --folder\n");
+   printf("-f, --file    : file to process; stdin is default\n");
+   printf("    --input\n");
+   printf("-j, --json    : output in JSON format\n");
+   printf("    --JSON\n");
+   printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
+   printf("                default is stderr\n");
+   printf("-m, --mode    : mode of operations; tr = translate | rn = rename\n");
+   printf("    --op\n");
+   printf("    --operation\n");
+   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
+   printf("-p, --prefix  : input file prefix\n");
+   printf("-r, --recurse : engage recursive mode; hang children\n");
+   printf("    --tree\n");
+   printf("-y, --yaml    : output in YAML format (default)\n");
+   printf("    --YAML\n");
+   exit(0);
+ }
+ if(f.version)
+ {
+  fprintf(stderr, "Built on %s %s\n", __DATE__, __TIME__);
   exit(0);
  }
- if(chart->flagc[1])
+ if(f.csv && f.recurse) 
  {
-  printf("Built on %s\n", __DATE__);
-  exit(0);
- }
- if(chart->flagc[7] && chart->flagc[2]) 
- {
-  printf("Recursive mode not supported for CSV output.\n");
+  fprintf(stderr, "Recursive mode not supported for CSV output\n");
   exit(1);
  }
- if(chart->flagv[3] == NULL && chart->flagv[4] == NULL)
+ if(!f.mode)
+ {
+  fprintf(stderr, "Mode not specified\n");
+  exit(1);
+ }
+ if(!f.dir && !f.file)
  {
   fprintf(stderr,"Input file / directory not specified; assuming stdin\n");
-  chart->flagv[3] = "-";
+  f.file = "-";
  }
 #ifndef _DIRENT_H 
- else if(chart->flagc[3])
+ if(f.dir)
  {
   fprintf(stderr, "Directory processing not compiled\n");
   exit(1);
  }
 #else
- else if(chart->flagv[3] != NULL)
+ if(f.dir)
  {
   char *files;
-  dcmdirectory_endir(&files, chart->flagv[3]);
-  chart->flagv[4] = files;
-  chart->flagv[8] = chart->flagv[3];
+  dcmdirectory_endir(&files, f.dir);
+  f.file = files;
+  f.prefix = f.dir;
  }
 #endif
- if(chart->flagv[6] == NULL)
+ else if(f.file)
+ {
+  jugglepath(&f.prefix, &f.file);
+ }
+ if(!f.log)
  {
   fprintf(stderr,"Log file not specified; logging to stderr\n");
-  chart->flagv[6] = "-";
+  f.log = "-";
  }
- if(chart->flagv[7] == NULL)
+ if(!f.output)
  {
   fprintf(stderr,"Output file not specified: assuming stdout\n");
-  chart->flagv[7] = "-";
+  f.output = "-";
  }
- if(chart->flagv[8] == NULL)
+ if(!f.prefix)
  {
-  chart->flagv[8] = "";
+  f.prefix = "";
  }
+ else
+  addslash(&f.prefix);
+
+ return &f;
 }
 
-int parsefile(int argc, char **argv)
+int beginops(int argc, char **argv)
 {
- /* start of operations time */
- time_t now; time(&now);
+ flagbreakout *f = doflagstuff(argc, argv);
 
- hougasargs_flagchart chart;
- doflagstuff(&chart, argc, argv);
+ /* open log file */
+ dcmlog_log(l_open, f->log, NULL, 0);
+ char mode[0x20];
+ sprintf(mode, "Mode of operation %s", f->mode);
+ dcmlog_log(l_write, NULL, mode, 0);
 
- /* names for flagchart components */
- unsigned int  csv     = chart.flagc[ 2];
- /* char         *dir     = chart.flagv[ 3]; */
- char         *file    = chart.flagv[ 4];
- unsigned int  json    = chart.flagc[ 5];
- char         *log     = chart.flagv[ 6];
- char         *output  = chart.flagv[ 7];
- char         *prefix  = chart.flagv[ 8];
- unsigned int  recurse = chart.flagc[ 9];
- unsigned int  yaml    = chart.flagc[10];
-
- /* open logfile */
- FILE* errfile = strcmp("-", log) ? fopen(log, "a") : stderr;
- if(errfile == NULL) return perror("1:parsefile"), 1;
-
- /* print start of operations time */
- fprintf(errfile,"%011ld  : ", now);
- struct tm *snow = gmtime(&now);
- int month = snow->tm_mon + 1;
- int year = snow->tm_year + 1900;
- fprintf(errfile,"%04d_%02d_%02d %02d:%02d:%02d Z  : Log file opened\n", year, month, snow->tm_mday, snow->tm_hour, snow->tm_min, snow->tm_sec);
-
- /* parse possibly multple file names */
- unsigned int infnamelength = strlen(file);
- char* infnames = (char*)malloc(infnamelength+1);
- strcpy(infnames, file);
+ /* expand input fnames */
+ char* infnames = malloc(strlen(f->file) + 1);
+ strcpy(infnames, f->file);
  unsigned int ninfname;
- char **infnamebatch;
- tokenize(&infnamebatch, &ninfname, infnames);
-
- m_format format = yaml ? f_yaml :
-                   json ? f_json :
-                   csv  ? f_csv  :
-                          f_yaml ;
- FILE *outfile = strcmp(output, "-") ? fopen(output, "w") : stdout;
- if(outfile == NULL)
+ char **infnamebatch = tokenize(&ninfname, infnames);
+ if(!infnamebatch)
  {
-  fprintf(errfile, " ERROR 2: failed to open output file %s\n", log);
-  if(errfile != stderr) fclose(errfile);
-  return 2;
+  dcmlog_log(l_write, NULL, "1:beginops -- failed to tokenize filenames", 0);
+  dcmlog_log(l_close, NULL, NULL, 0);
+  return 1;
  }
- outmode omode =
+ char *fullfile = malloc(strlen(f->prefix) + strlen(infnamebatch[0]) + 1);
+ memcpy(fullfile, f->prefix, strlen(f->prefix) + 1);
+ strcat(fullfile, infnamebatch[0]);
+
+ if(!strcmp(f->mode, "tr"))
  {
-  format,
-  recurse,
-  outfile,
-  "",
-  0,
-  ninfname - 1
- };
-
- /* memory for time data */
- clock_t *inputloaded    = (clock_t*)malloc(sizeof(clock_t)*ninfname);
- clock_t *fileprocessed  = (clock_t*)malloc(sizeof(clock_t)*ninfname);
- clock_t *outputsent     = (clock_t*)malloc(sizeof(clock_t)*ninfname);
- clock_t *memoryreleased = (clock_t*)malloc(sizeof(clock_t)*ninfname);
-
- unsigned int j;
- for(j = 0; j < ninfname; j++)
+  if(dcmtree_translate(f, infnamebatch, ninfname))
+  {
+   dcmlog_log(l_write, NULL, "1:beginops -- failed to translate", 0);
+   dcmlog_log(l_close, NULL, NULL, 0);
+   return 1;
+  }
+ }
+ else if(!strcmp(f->mode, "rn"))
  {
-  unsigned int prefixlength = strlen(prefix) + 1;
-  char *fullname = (char*)malloc(prefixlength + strlen(infnamebatch[j]));
-  memcpy(fullname, prefix, prefixlength);
-  strcat(fullname, infnamebatch[j]);
-  FILE* dicom = strcmp("-", infnamebatch[j]) ? fopen(fullname, "r") : stdin;
-
-  if(dicom == NULL) 
+  if(dcmname_rename(f, infnamebatch, ninfname))
   {
-   fprintf(errfile, " ERROR 3: failed to open input file %s\n", infnamebatch[j]);
-   if(errfile != stderr) fclose(errfile);
-   return 3;
+   dcmlog_log(l_write, NULL, "2:beginops -- failed to rename", 0);
+   dcmlog_log(l_close, NULL, NULL, 0);
+   return 2;
   }
-
-  free(fullname);
-
-  dcmbuff *buff; dcmbuff_loaddicom(&buff, dicom);
-  if(dicom == stdin ? 0 : fclose(dicom))
-   fprintf(errfile, " ERROR 4: failed to close input file %s; continuing\n", infnamebatch[j]);
-  inputloaded[j] = clock();
-
-  dcmelarr *metaarr; dcmelement_mkarr(&metaarr);
-  tsmode mode;
-  if(procfilemeta(metaarr, &mode, buff)) 
-  {
-   fprintf(errfile, " ERROR 5: failed to process file metadata elements\n");
-   if(errfile != stderr) fclose(errfile);
-   return 5;
-  }
-
-  dcmelarr *bodyarr; dcmelement_mkarr(&bodyarr);
-  if(procfilebody(bodyarr, mode, buff))
-  {
-   fprintf(errfile, " ERROR 6: failed to process file body elements\n");
-   if(errfile != stderr) fclose(errfile);
-   return 6;
-  }
-
-  dcmbuff_del(buff);
-
-  unsigned int i;
-  if(omode.r)
-  {
-   for(i = 0; i < bodyarr->p; i++)
-    if(bodyarr->els[i] != NULL)
-     dcmtree_recursivehang(&bodyarr->els[i]);
-   dcmtree_trim(bodyarr);
-  }
-  fileprocessed[j] = clock();
-
-  omode.tag = infnamebatch[j];
-  omode.current = j;
-  if(dcmoutput_out(omode, metaarr, bodyarr))
-  {
-   fprintf(errfile, " ERROR 7: failed to write to file %s\n", log);
-   if(errfile != stderr) fclose(errfile);
-   return 7;
-  }
-  outputsent[j] = clock();
-
-  if(dcmelement_delarr(metaarr)) fprintf(errfile, " ERROR 8: failed to free metadata array; continuing\n");
-  if(dcmelement_delarr(bodyarr)) fprintf(errfile, " ERROR 9: failed to free body array; continuing\n");
-  memoryreleased[j] = clock();
  }
 
- clock_t cputime = clock();
- time(&now);
- char cputimestr[20];
-
- for(j = 0; j < ninfname; j++)
- {
-  formatcputime(cputimestr, inputloaded[j]);
-  fprintf(errfile, " %s -- Input file loaded %s\n", cputimestr, infnamebatch[j]);
-  formatcputime(cputimestr, fileprocessed[j]);
-  fprintf(errfile, " %s -- File processed\n", cputimestr);
-  formatcputime(cputimestr, outputsent[j]);
-  fprintf(errfile, " %s -- Output written\n", cputimestr);
-  formatcputime(cputimestr, memoryreleased[j]);
-  fprintf(errfile, " %s -- Element arrays released\n", cputimestr);
- }
-
- formatcputime(cputimestr, cputime);
- fprintf(errfile, "%011ld  : %s   : Operations completed successfully\n", now, cputimestr);
-
- if(errfile == stderr ? 0 : fclose(errfile)) {perror("10: parsefile; continuing");}
+ dcmlog_log(l_write, NULL, "Operations complete", clock());
+ dcmlog_log(l_close, NULL, NULL, 0);
 
  return 0;
 }
 
 int main(int argc, char** argv)
 {
- return parsefile(argc, argv);
+ return beginops(argc, argv);
 }

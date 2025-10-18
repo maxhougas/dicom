@@ -39,8 +39,8 @@ int dcmtable_wordsearch(m_table whichcol, char *word)
 {
  char *col = THETABLE[whichcol == c_tags ? c_keywords : whichcol];
 
- int i;
- for(i = 0; i < NTHETABLE; i++)
+ register unsigned int i;
+ for(i = 0; i < NTHETABLE; ++i)
   if(!strcmp(col, word)) return i;
 
  return -1;

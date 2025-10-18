@@ -20,26 +20,27 @@
 const int dcmendian_ENDIANINT = 1;
 const char *dcmendian_SYSISLITTLE = (char*)&dcmendian_ENDIANINT;
 
-int dcmendian_swap(byte1* toswap, int size)
+/*
+ endian swap arbitrary data types
+ MUTATES
+*/
+void dcmendian_swap(byte1* toswap, unsigned int size)
 {
- if(toswap == NULL || size < 0) {perror("1:dcmendian_swap"); return 1;}
-
  int i;
- for(i=0; i < size/2; i++)
+ for(i=0; i < size/2; ++i)
  {
   toswap[i] ^= toswap[size-i];
   toswap[size-i] ^= toswap[i];
   toswap[i] ^= toswap[size=i];
  }
-
- return 0;
 }
 
 /*
  tag is represented in file as gggg,eeee
  i.e. 2 2-byte numbers. 1 4-byte number is moar better
+ MUTATES
 */
-int dcmendian_handletag(byte4* tag, m_endian file_endianness)
+void dcmendian_handletag(byte4* tag, m_endian file_endianness)
 {
  if(*dcmendian_SYSISLITTLE && file_endianness == e_little)
   *tag = ((*tag&0xFFFF0000)>>16) + ((*tag&0xFFFF)<<16);
@@ -47,6 +48,4 @@ int dcmendian_handletag(byte4* tag, m_endian file_endianness)
   *tag = ((*tag&0xFF000000)>>24) + ((*tag&0xFF0000)>>8) + ((*tag&0xFF00)<<8) + ((*tag&0xFF)<<24);
  else if(!*dcmendian_SYSISLITTLE && file_endianness == e_little)
   *tag = ((*tag&0xFF000000)>>8) + ((*tag&0xFF0000)<<8) + ((*tag&0xFF00)>>8) + ((*tag&0xFF)<<8);
-
- return 0;
 }

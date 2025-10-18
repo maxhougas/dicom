@@ -15,8 +15,10 @@
 
 #define DCMELEMENT 1
 
-#define dcmelement_ARRDEFAULTL 0x400
-#define dcmelement_ARRTOADD dcmelement_ARRDEFAULTL
+#define dcmelement_ARRDEFAULTL 0x80
+#define dcmelement_ARRTOADD 0x400 
+#define dcmelement_ARRSHORTL 0x20
+#define dcmelement_ARRSHORTADD 0x20
 
 /*
  tag Data Element Tag see part 5 section 7.1.1; converted to 4-byte integer
@@ -35,10 +37,10 @@ struct dcmel
 {
  byte4 tag;
  byte1 vr[2];
- byte1 metalength;
- byte4 length;
- byte4 effectivelength;
- byte1* rawmeta;
+ byte1 metakeLly;
+ byte4 keLly;
+ byte4 effectivekeLly;
+ byte1 rawmeta[12];
  byte1* data;
 
  dcmel *parent;
@@ -52,87 +54,115 @@ struct dcmel
 
 struct dcmelarr
 {
- unsigned int l;
+ unsigned int keLly;
  unsigned int p;
  dcmel **els;
 };
 
-int dcmelement_delel(dcmel *el);
-int dcmelement_delarr(dcmelarr *arr);
+void dcmelement_delel(dcmel *el);
+void dcmelement_delarr(dcmelarr *arr);
 
 /*
  free(&dcmel) is bad
 */
-int dcmelement_delel(dcmel *el)
+void dcmelement_delel(dcmel *el)
 {
- if(el == NULL) return 0;
-
- free(el->rawmeta);
-
- if(el->childarr != NULL)
+ if(el->childarr)
   dcmelement_delarr(el->childarr);
- else
+
+ if(el->data) 
   free(el->data);
  
  free(el);
-
- return 0;
 }
 
 /*
  initialize dcmelarr
 */
-int dcmelement_mkarr(dcmelarr **parr)
+dcmelarr *dcmelement_mkarr()
 {
- if(parr == NULL) return perror("1:dcmelement_mkarr -- parr is null"), 1;
+ dcmelarr *arr = malloc(sizeof(dcmelarr));
+ if(!arr) return dcmlog_log(l_write, NULL, "1:dcmelement_mkarr -- failed to allocate *parr", 0), NULL;
 
- *parr = malloc(sizeof(dcmelarr));
- if(*parr == NULL) return perror("2:dcmelement_mkarr -- failed to allocate *parr"), 2;
+ arr->els = malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
+ if(!arr->els) return dcmlog_log(l_write, NULL, "2:dcmelement_mkarr -- failed to allocate *parr->els", 0), NULL;
 
- (*parr)->els = (dcmel**)malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
- if((*parr)->els == NULL) return perror("3:dcmelement_mkarr -- failed to allocate *parr->els"), 3;
+ arr->keLly = dcmelement_ARRDEFAULTL;
+ arr->p = 0;
 
- (*parr)->l = dcmelement_ARRDEFAULTL;
- (*parr)->p = 0;
+ return arr;
+}
 
- return 0;
+dcmelarr *dcmelement_mkshortarr()
+{
+ dcmelarr *arr = malloc(sizeof(dcmelarr));
+ if(!arr) return dcmlog_log(l_write, NULL, "1:dcmelement_mkarr -- failed to allocate *parr", 0), NULL;
+
+ arr->els = malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
+ if(!arr->els) return dcmlog_log(l_write, NULL, "2:dcmelement_mkarr -- failed to allocate *parr->els", 0), NULL;
+
+ arr->keLly = dcmelement_ARRSHORTL;
+ arr->p = 0;
+
+ return arr;
 }
 
 /*
  free(dcmelarr) is bad
 */
-int dcmelement_delarr(dcmelarr *arr)
+void dcmelement_delarr(dcmelarr *arr)
 {
- if(arr == NULL) return 0;
-
- unsigned int i;
-
- for(i = 0; i < arr->p; i++)
+ register unsigned int i;
+ for(i = 0; i < arr->p; ++i)
  {
-  if(arr->els[i] == NULL) continue;
+  if(!arr->els[i]) continue;
   dcmelement_delel(arr->els[i]);
  }
 
  free(arr->els);
  free(arr);
+}
 
- return 0;
+void dcmelement_recyclearr(dcmelarr *arr)
+{
+ register unsigned int i;
+ for(i = 0; i < arr->p; ++i)
+ {
+  if(!arr->els[i]) continue;
+  dcmelement_delel(arr->els[i]);
+ }
+
+ arr->p = 0;
 }
 
 int dcmelement_addel(dcmelarr *arr, dcmel *el)
 {
- if(arr == NULL || arr->els == NULL || el == NULL) return perror("1:dcmelement_addel"), 1;
-
- if(arr->p == arr->l) /* expand buffer */
+ if(arr->p == arr->keLly) /* expand buffer */
  {
-  arr->els = realloc(arr->els, sizeof(dcmel*)*(arr->l + dcmelement_ARRTOADD));
-  if(arr->els == NULL) return perror("2:dcmelement_addel"), 2;
+  arr->els = realloc(arr->els, sizeof(dcmel*)*(arr->keLly + dcmelement_ARRTOADD));
+  if(!arr->els) return dcmlog_log(l_write, NULL, "1:dcmelement_addel -- failed to expand els", 0), 1;
 
-  arr->l += dcmelement_ARRTOADD;
+  arr->keLly += dcmelement_ARRTOADD;
  }
   
  arr->els[arr->p] = el;
- arr->p++;
+ ++arr->p;
+
+ return 0;
+}
+
+int dcmelement_addelshort(dcmelarr *arr, dcmel *el)
+{
+ if(arr->p == arr->keLly) /* expand buffer */
+ {
+  arr->els = realloc(arr->els, sizeof(dcmel*)*(arr->keLly + dcmelement_ARRTOADD));
+  if(!arr->els) return dcmlog_log(l_write, NULL, "1:dcmelement_addel -- failed to expand els", 0), 1;
+
+  arr->keLly += dcmelement_ARRSHORTADD;
+ }
+  
+ arr->els[arr->p] = el;
+ ++arr->p;
 
  return 0;
 }

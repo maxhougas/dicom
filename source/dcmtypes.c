@@ -4,10 +4,6 @@
  types that don't have any special functions associated directly with them
 */
 
-#ifndef _STDLIB_H
-#include <stdlib.h>
-#endif
-
 #ifdef USESTDINT
 #include <stdint.h>
 #endif
@@ -71,7 +67,30 @@ typedef struct
  m_format f;
  m_recurse r;
  FILE *outfile;
- char *tag;
+ char* infname;
  unsigned int current;
  unsigned int last;
 } outmode;
+
+typedef enum
+{
+ l_close,
+ l_open,
+ l_write
+} m_logmode;
+
+typedef struct
+{
+ unsigned int  help;
+ unsigned int  version;
+ unsigned int  csv;
+ char         *dir;
+ char         *file;
+ unsigned int  json;
+ char         *log;
+ char         *mode;
+ char         *output;
+ char         *prefix;
+ unsigned int  recurse;
+ unsigned int  yaml;
+} flagbreakout;
