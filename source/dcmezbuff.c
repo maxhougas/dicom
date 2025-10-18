@@ -32,7 +32,7 @@
 /*
  this should NEVER be less than DICOMHEADERL + 4
 */
-#define dcmezbuff_DICOMSIZEMAX (0x01 << 30)
+#define dcmezbuff_DICOMSIZEMAX 0xA00000
 #define dcmezbuff_DICOMHEADERL 128
 #define dcmezbuff_DICOMFOURCC "DICM"
 
@@ -40,14 +40,16 @@ typedef struct
 {
  unsigned int keLly;
  unsigned int p;
- byte1 *data;
+ byte1 data[dcmezbuff_DICOMSIZEMAX];
 } dcmbuff;
 
+/*
 void dcmbuff_del(dcmbuff *todel)
 {
  free(todel->data);
  free(todel);
 }
+*/
 
 /*
  get bytes from buff
@@ -63,6 +65,9 @@ int dcmbuff_get(byte1 **current, dcmbuff *buff, unsigned int numchars)
  return 0;
 }
 
+/*
+ read bytes without updating p
+*/
 int dcmbuff_peek(byte1 **current, dcmbuff *buff, unsigned int numchars)
 {
  if(buff->keLly-buff->p < numchars)
@@ -76,10 +81,10 @@ int dcmbuff_peek(byte1 **current, dcmbuff *buff, unsigned int numchars)
 /*
 int dcmezbuff_filetoobig(FILE *dicom)
 {
- if(fseek(dicom, 0, SEEK_END)) return perror("1:dcmbuff_filetoobig -- could not determine file size"), 1;
+ if(fseek(dicom, 0, SEEK_END)) return dcmlog_log(l_write, NULL, "1:dcmbuff_filetoobig -- could not determine file size", 0), 1;
  unsigned long int size = ftell(dicom);
- if(size == -1L) return perror("2:dcmbuff_filetoobig -- could not determine file size"), 2;
- if(size > dcmezbuff_DICOMSIZEMAX) return perror("3:dcmbuff_filetoobig -- file actually too big"), 3;
+ if(size == -1L) return dcmlog_log(l_write, NULL, "2:dcmbuff_filetoobig -- could not determine file size", 0), 2;
+ if(size > dcmezbuff_DICOMSIZEMAX) return dcmlog_log(l_write, NULL, "3:dcmbuff_filetoobig -- file actually too big", 0), 3;
 
  return 0;
 }
@@ -92,58 +97,41 @@ int dcmezbuff_filetoobig(FILE *dicom)
 dcmbuff *dcmbuff_loaddicom(char *dicomfname)
 {
  FILE *dicom = strcmp("-", dicomfname) ? fopen(dicomfname,"r") : stdin;
- if(!dicom)
-  return dcmlog_log(l_write, NULL, "1:dcmbuff_loaddicom -- failed to open file", 0), NULL;
+ if(!dicom) return dcmlog_log(l_write, NULL, "1:dcmbuff_loaddicom -- failed to open file", 0), NULL;
 
- byte1 *data;
+ static dcmbuff buff;
  unsigned int nread;
 
  if(dicom == stdin)
  {
-  data = (byte1*)malloc(dcmezbuff_DICOMSIZEMAX);
-  if(!data)
-   return dcmlog_log(l_write, NULL, "4:dcmbuff_loaddicom -- failed to allocate data", 0), NULL;
-
-  nread = fread(data, 1, dcmezbuff_DICOMSIZEMAX, stdin);
-  if(ferror(stdin))
-   return dcmlog_log(l_write, NULL, "3:dcmbuff_loaddicom -- failed to read stdin", 0), NULL;
-
-  if(!(data = realloc(data, nread)))
-   return dcmlog_log(l_write, NULL, "6:dcmbuff_loaddicom -- failed to shrink data", 0), NULL;
+  nread = fread(buff.data, 1, dcmezbuff_DICOMSIZEMAX, stdin);
+  if(ferror(stdin)) return dcmlog_log(l_write, NULL, "4:dcmbuff_loaddicom -- failed to read stdin", 0), NULL;
  }
  else
  {
-  if(fseek(dicom, 0, SEEK_END))
-   return dcmlog_log(l_write, NULL, "2:dcmbuff_loaddicom -- file error", 0), NULL;
+  if(fseek(dicom, 0, SEEK_END)) return dcmlog_log(l_write, NULL, "2:dcmbuff_loaddicom -- file error", 0), NULL;
+
   long int size = ftell(dicom);
   if(size == -1L || size > dcmezbuff_DICOMSIZEMAX)
    return dcmlog_log(l_write, NULL, "3:dcmbuff_loaddicom -- file too big, or failed to determine size", 0), NULL;
 
   rewind(dicom);
-  if(!(data = malloc(size)))
-   return dcmlog_log(l_write, NULL, "4:dcmbuff_loaddicom -- failed to allocate data", 0), NULL;
-
-  nread = fread(data, 1, size, dicom);
-  if(ferror(dicom)) return perror("5:dcmbuff_loaddicom -- failed to read file"), NULL;
+  nread = fread(buff.data, 1, size, dicom);
+  if(nread != size) return dcmlog_log(l_write, NULL, "4:dcmbuff_loaddicom -- failed to read file", 0), NULL;
 
   fclose(dicom);
  }
 
- dcmbuff *buff;
- if(!(buff = malloc(sizeof(dcmbuff))))
-  return dcmlog_log(l_write, NULL, "7:dcmbuff_loaddicom -- failed to allocate buff", 0), NULL;
-
- buff->data = data;
- buff->p = dcmezbuff_DICOMHEADERL;
- buff->keLly = nread;
- byte1 *tocheck;
+ buff.p = dcmezbuff_DICOMHEADERL;
+ buff.keLly = nread;
+ byte1 *fourcc;
 
  if
  (
   nread < dcmezbuff_DICOMHEADERL ||
-  dcmbuff_get(&tocheck, buff, strlen(dcmezbuff_DICOMFOURCC)) ||
-  strncmp(tocheck, dcmezbuff_DICOMFOURCC, strlen(dcmezbuff_DICOMFOURCC))
- ) return dcmlog_log(l_write, NULL, "8:dcmbuff_loaddicom -- file format error", 0), NULL;
+  dcmbuff_get(&fourcc, &buff, 4) ||
+  strncmp(fourcc, dcmezbuff_DICOMFOURCC, 4)
+ ) return dcmlog_log(l_write, NULL, "5:dcmbuff_loaddicom -- file format error", 0), NULL;
 
- return buff;
+ return &buff;
 }

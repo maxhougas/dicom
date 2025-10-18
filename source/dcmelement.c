@@ -17,6 +17,8 @@
 
 #define dcmelement_ARRDEFAULTL 0x80
 #define dcmelement_ARRTOADD 0x400 
+#define dcmelement_ARRSHORTL 0x20
+#define dcmelement_ARRSHORTADD 0x20
 
 /*
  tag Data Element Tag see part 5 section 7.1.1; converted to 4-byte integer
@@ -91,13 +93,27 @@ dcmelarr *dcmelement_mkarr()
  return arr;
 }
 
+dcmelarr *dcmelement_mkshortarr()
+{
+ dcmelarr *arr = malloc(sizeof(dcmelarr));
+ if(!arr) return dcmlog_log(l_write, NULL, "1:dcmelement_mkarr -- failed to allocate *parr", 0), NULL;
+
+ arr->els = malloc(sizeof(dcmel*)*dcmelement_ARRDEFAULTL);
+ if(!arr->els) return dcmlog_log(l_write, NULL, "2:dcmelement_mkarr -- failed to allocate *parr->els", 0), NULL;
+
+ arr->keLly = dcmelement_ARRSHORTL;
+ arr->p = 0;
+
+ return arr;
+}
+
 /*
  free(dcmelarr) is bad
 */
 void dcmelement_delarr(dcmelarr *arr)
 {
  register unsigned int i;
- for(i = 0; i < arr->p; i++)
+ for(i = 0; i < arr->p; ++i)
  {
   if(!arr->els[i]) continue;
   dcmelement_delel(arr->els[i]);
@@ -110,7 +126,7 @@ void dcmelement_delarr(dcmelarr *arr)
 void dcmelement_recyclearr(dcmelarr *arr)
 {
  register unsigned int i;
- for(i = 0; i < arr->p; i++)
+ for(i = 0; i < arr->p; ++i)
  {
   if(!arr->els[i]) continue;
   dcmelement_delel(arr->els[i]);
@@ -130,7 +146,23 @@ int dcmelement_addel(dcmelarr *arr, dcmel *el)
  }
   
  arr->els[arr->p] = el;
- arr->p++;
+ ++arr->p;
+
+ return 0;
+}
+
+int dcmelement_addelshort(dcmelarr *arr, dcmel *el)
+{
+ if(arr->p == arr->keLly) /* expand buffer */
+ {
+  arr->els = realloc(arr->els, sizeof(dcmel*)*(arr->keLly + dcmelement_ARRTOADD));
+  if(!arr->els) return dcmlog_log(l_write, NULL, "1:dcmelement_addel -- failed to expand els", 0), 1;
+
+  arr->keLly += dcmelement_ARRSHORTADD;
+ }
+  
+ arr->els[arr->p] = el;
+ ++arr->p;
 
  return 0;
 }

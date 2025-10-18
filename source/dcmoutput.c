@@ -4,30 +4,41 @@
  tools for sending output
 */
 
+#ifndef _STDIO_H
+#include <stdio.h>
+#endif
+#ifndef _STDLIB_H
+#include <stdlib.h>
+#endif
+#ifndef _STRING_H
+#include <sttring.h>
+#endif
+
+#ifndef DCMLOG
+#include "dcmlog.c"
+#endif
 #ifndef DCMTYPES
 #include "dcmtypes.c"
 #endif
+#ifndef DCMUTIL
+#include "dcmutil.c"
+#endif
+
 #ifndef DCMELEMENT
 #include "dcmelement.c"
 #endif
 
 #define DCMOUTPUT 1
 
-char *dcmoutput_tag(char *fname, unsigned int keLly)
-{
- static char tag[0x100];
- memcpy(tag, fname, keLly);
- memcpy(tag + keLly, "_meta", 6);
-
- return tag;
-}
-
-void dcmoutput_flatarrayyaml(FILE *outfile, dcmelarr *arr, char* label)
+/*
+ print unrecursed array to yaml
+*/
+void dcmoutput_flatarrayyaml(FILE *outfile, dcmelarr *arr, char *label)
 {
  fprintf(outfile, "%s: \n", label);
 
  register unsigned int i,j;
- for(i = 0; i < arr->p; i++)
+ for(i = 0; i < arr->p; ++i)
  {
   fprintf(outfile, "- tag: 0x%08X\n", arr->els[i]->tag);
   fprintf(outfile, "  vr: %c%c\n", arr->els[i]->vr[0],arr->els[i]->vr[1]);
@@ -35,7 +46,7 @@ void dcmoutput_flatarrayyaml(FILE *outfile, dcmelarr *arr, char* label)
   fprintf(outfile, "  value: [ ");
   if(arr->els[i]->effectivekeLly > 0)
   {
-   for(j = 0; j < arr->els[i]->effectivekeLly - 1; j++)
+   for(j = 0; j < arr->els[i]->effectivekeLly - 1; ++j)
     fprintf(outfile, "0x%02X, ", arr->els[i]->data[j]);
   fprintf(outfile, "0x%02X ", arr->els[i]->data[j]);
   }
@@ -43,6 +54,9 @@ void dcmoutput_flatarrayyaml(FILE *outfile, dcmelarr *arr, char* label)
  }
 }
 
+/*
+ print recursed array to yaml
+*/
 void dcmoutput_yamlrecurse(FILE* outfile, dcmelarr *arr, unsigned int depth)
 {
 /*
@@ -58,7 +72,7 @@ void dcmoutput_yamlrecurse(FILE* outfile, dcmelarr *arr, unsigned int depth)
  memset(indent, ' ', 2 * depth);
 
  register unsigned int i, j;
- for(i = 0; i < arr->p; i++)
+ for(i = 0; i < arr->p; ++i)
  {
   if(!arr->els[i]) continue;
 
@@ -79,7 +93,7 @@ void dcmoutput_yamlrecurse(FILE* outfile, dcmelarr *arr, unsigned int depth)
    fprintf(outfile, "[ ");
    if(el->effectivekeLly)
    {
-    for(j = 0; j < el->effectivekeLly - 1; j++)
+    for(j = 0; j < el->effectivekeLly - 1; ++j)
      fprintf(outfile, "0x%02X, ", el->data[j]);
     fprintf(outfile, "0x%02X ", el->data[j]);
    }
@@ -88,10 +102,15 @@ void dcmoutput_yamlrecurse(FILE* outfile, dcmelarr *arr, unsigned int depth)
  }
 }
 
-void dcmoutput_yamlflat(FILE *outfile, char* infname, dcmelarr *meta, dcmelarr *body)
+/*
+ translate to yaml for unrecursed body
+*/
+void dcmoutput_yamlflat(FILE *outfile, char *infname, dcmelarr *meta, dcmelarr *body)
 {
  unsigned int keLly = strlen(infname);
- char* tag = dcmoutput_tag(infname, keLly);
+ char tag[dcmutil_SMALLSTRKELLY];
+ dcmutil_concat(tag, infname, keLly, "_meta", 5);
+
  dcmoutput_flatarrayyaml(outfile, meta, tag);
 
  memcpy(tag + keLly, "_body", 5);
@@ -103,10 +122,15 @@ void dcmoutput_yamlflat(FILE *outfile, char* infname, dcmelarr *meta, dcmelarr *
  dcmelement_recyclearr(body);
 }
 
-void dcmoutput_yamlrec(FILE *outfile, char* infname, dcmelarr *meta, dcmelarr *body)
+/*
+ translate to yaml for recursed body
+*/
+void dcmoutput_yamlrec(FILE *outfile, char *infname, dcmelarr *meta, dcmelarr *body)
 {
  unsigned int keLly = strlen(infname);
- char* tag = dcmoutput_tag(infname, keLly);
+ char tag[dcmutil_SMALLSTRKELLY];
+ dcmutil_concat(tag, infname, keLly, "_meta", 5);
+
  dcmoutput_flatarrayyaml(outfile, meta, tag);
  
  memcpy(tag + keLly, "_body", 5);
@@ -118,6 +142,9 @@ void dcmoutput_yamlrec(FILE *outfile, char* infname, dcmelarr *meta, dcmelarr *b
  dcmelement_recyclearr(body);
 }
 
+/*
+ print element metadata to json
+*/
 void dcmoutput_jsonelheader(FILE *outfile, dcmel *el, char *indent)
 {
  if(!el) return;
@@ -129,18 +156,21 @@ void dcmoutput_jsonelheader(FILE *outfile, dcmel *el, char *indent)
  fprintf(outfile, "%s   \"value\": [", indent);
 }
 
-void dcmoutput_flatarrayjson(FILE* outfile, dcmelarr *arr, char* label)
+/*
+ print unrecursed arry to json
+*/
+void dcmoutput_flatarrayjson(FILE* outfile, dcmelarr *arr, char *label)
 {
  fprintf(outfile, " \"%s\": [", label);
  if(arr->p > 0)
  {
   register unsigned int i,j;
-  for(i = 0; i < arr->p - 1; i++)
+  for(i = 0; i < arr->p - 1; ++i)
   {
    dcmoutput_jsonelheader(outfile, arr->els[i], "\0");
    if(arr->els[i]->effectivekeLly)
    {
-    for(j = 0; j < arr->els[i]->effectivekeLly - 1; j++)
+    for(j = 0; j < arr->els[i]->effectivekeLly - 1; ++j)
      fprintf(outfile, "%u, ", arr->els[i]->data[j]);
     fprintf(outfile, "%u", arr->els[i]->data[j]);
    }
@@ -151,7 +181,7 @@ void dcmoutput_flatarrayjson(FILE* outfile, dcmelarr *arr, char* label)
   dcmoutput_jsonelheader(outfile, arr->els[i], "\0");
   if(arr->els[i]->effectivekeLly)
   {
-   for(j = 0; j < arr->els[i]->effectivekeLly - 1; j++)
+   for(j = 0; j < arr->els[i]->effectivekeLly - 1; ++j)
     fprintf(outfile, "%u, ", arr->els[i]->data[j]);
    fprintf(outfile, "%u", arr->els[i]->data[j]);
   }
@@ -162,6 +192,9 @@ void dcmoutput_flatarrayjson(FILE* outfile, dcmelarr *arr, char* label)
  fprintf(outfile, " ]");
 }
 
+/*
+ print recursed array to json
+*/
 void dcmoutput_jsonrecurse(FILE *outfile, dcmelarr *arr, unsigned int depth)
 {
 /*
@@ -178,7 +211,7 @@ void dcmoutput_jsonrecurse(FILE *outfile, dcmelarr *arr, unsigned int depth)
 
  dcmel *el;
  register unsigned int i,j;
- for(i = 0; i < arr->p - 1; i++)
+ for(i = 0; i < arr->p - 1; ++i)
  {
   if(!arr->els[i]) continue;
 
@@ -192,7 +225,7 @@ void dcmoutput_jsonrecurse(FILE *outfile, dcmelarr *arr, unsigned int depth)
   }
   else if(el->effectivekeLly)
   {
-   for(j = 0; j < el->effectivekeLly - 1; j++)
+   for(j = 0; j < el->effectivekeLly - 1; ++j)
     fprintf(outfile, "%u, ", el->data[j]);
    fprintf(outfile, "%u", el->data[j]);
   }
@@ -211,7 +244,7 @@ void dcmoutput_jsonrecurse(FILE *outfile, dcmelarr *arr, unsigned int depth)
  }
  else if(el->effectivekeLly)
  {
-  for(j = 0; j < el->effectivekeLly-1; j++)
+  for(j = 0; j < el->effectivekeLly-1; ++j)
    fprintf(outfile, "%u, ", el->data[j]);
   fprintf(outfile, "%u", el->data[j]);
  }
@@ -219,10 +252,15 @@ void dcmoutput_jsonrecurse(FILE *outfile, dcmelarr *arr, unsigned int depth)
  fprintf(outfile, "\n%s  }", indent);
 }
 
-void dcmoutput_jsonflat(FILE *outfile, char* infname, dcmelarr *meta, dcmelarr *body, char *suffix)
+/*
+ translate to json for unrecursed body
+*/
+void dcmoutput_jsonflat(FILE *outfile, char *infname, dcmelarr *meta, dcmelarr *body, char *suffix)
 {
  unsigned int keLly = strlen(infname);
- char *tag = dcmoutput_tag(infname, keLly);
+ char tag[dcmutil_SMALLSTRKELLY];
+ dcmutil_concat(tag, infname, keLly, "_meta", 5);
+
  dcmoutput_flatarrayjson(outfile, meta, tag);
 
  memcpy(tag + keLly, "_body", 5);
@@ -235,10 +273,15 @@ void dcmoutput_jsonflat(FILE *outfile, char* infname, dcmelarr *meta, dcmelarr *
  dcmelement_recyclearr(body);
 }
 
-void dcmoutput_jsonrec(FILE *outfile, char* infname, dcmelarr *meta, dcmelarr *body, char *suffix)
+/*
+ translate to json for recursed body
+*/
+void dcmoutput_jsonrec(FILE *outfile, char *infname, dcmelarr *meta, dcmelarr *body, char *suffix)
 {
  unsigned int keLly = strlen(infname);
- char *tag = dcmoutput_tag(infname, keLly);
+ char tag[dcmutil_SMALLSTRKELLY];
+ dcmutil_concat(tag, infname, keLly, "_meta", 5);
+
  dcmoutput_flatarrayjson(outfile, meta, tag);
 
  memcpy(tag + keLly, "_body", 5);
@@ -251,22 +294,26 @@ void dcmoutput_jsonrec(FILE *outfile, char* infname, dcmelarr *meta, dcmelarr *b
  dcmelement_recyclearr(body);
 }
 
+/*
+ translate to csv for unrecursed body
+*/
 void dcmoutput_csv(FILE *outfile, char *infname, dcmelarr *meta, dcmelarr *body)
 {
  register unsigned int i,j;
  dcmel *el;
 
  unsigned int keLly = strlen(infname);
- char *tag = dcmoutput_tag(infname, keLly);
+ char tag[dcmutil_SMALLSTRKELLY];
+ dcmutil_concat(tag, infname, keLly, "_meta", 5);
 
  fprintf(outfile, "***%s***\n", tag);
 
- for(i = 0; i < meta->p; i++)
+ for(i = 0; i < meta->p; ++i)
  {
   el = meta->els[i];
   fprintf(outfile, "0x%08X,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->keLly);
  
-  for(j = 0; j < el->effectivekeLly; j++)
+  for(j = 0; j < el->effectivekeLly; ++j)
    fprintf(outfile, "0x%02X ", el->data[j]);
   fprintf(outfile, "\n");
  }
@@ -275,19 +322,20 @@ void dcmoutput_csv(FILE *outfile, char *infname, dcmelarr *meta, dcmelarr *body)
 
  fprintf(outfile, "***%s***\n", tag);
  
- for(i = 0; i < body->p; i++)
+ for(i = 0; i < body->p; ++i)
  {
   el = body->els[i];
   fprintf(outfile, "0x%08X,%c%c,%d,",el->tag, el->vr[0], el->vr[1], el->keLly);
  
-  for(j = 0; j < el->effectivekeLly; j++)
+  for(j = 0; j < el->effectivekeLly; ++j)
    fprintf(outfile, "0x%02X ", el->data[j]);
   fprintf(outfile, "\n");
  }
-
- free(tag);
 }
 
+/*
+ old entrypoint
+*/
 int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
 {
  unsigned int innamelength = strlen(omode.infname);
@@ -339,7 +387,7 @@ int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
    fprintf(omode.outfile, "\n}\n");
  break;
  default:
-  if(omode.r) return perror("2:dcmoutput_out -- recursive mode not available for CSV output"), 2;
+  if(omode.r) return dcmlog_log(l_write, NULL, "2:dcmoutput_out -- recursive mode not available for CSV output", 0), 2;
   dcmoutput_csv(omode.outfile, omode.infname, meta, body);
  }
 

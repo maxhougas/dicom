@@ -4,6 +4,7 @@
  tools for building trees of elements
 */
 
+/* system headers */
 #ifndef _STDIO_H
 #include <stdio.h>
 #endif
@@ -14,12 +15,17 @@
 #include <string.h>
 #endif
 
+/* no in-project dependencies */
+#ifndef DCMUTIL
+#include "dcmutil.c"
+#endif
 #ifndef DCMTYPES
 #include "dcmtypes.c"
 #endif
 #ifndef DCMLOG
 #include "dcmlog.c"
 #endif
+
 #ifndef DCMELEMENT
 #include "dcmelement.c"
 #endif
@@ -92,12 +98,13 @@ int dcmtree_getelmeta(dcmel *dest, dcmbuff *source, const tsmode *mode)
 int dcmtree_geteldata(dcmel *dest, dcmbuff *source)
 {
  if(dcmspecialtag_ischildable(dest))
+ {
   dest->effectivekeLly = 0;
+  dest->data = NULL;
+  return 0;
+ }
  else
   dest->effectivekeLly = dest->keLly;
-
- if(!dest->effectivekeLly)
-  return dest->data = NULL, 0;
 
  byte1 *tmp;
  if(dcmbuff_get(&tmp, source, dest->keLly))
@@ -139,31 +146,26 @@ int dcmtree_getputel(dcmelarr *arr, dcmbuff *source, const tsmode *mode)
 */
 int dcmtree_procfilemeta(dcmelarr *arr, tsmode *filemode, dcmbuff *source)
 {
+ /* grab first el; should be 0x00020000; don't bother checking it's fine */
  if(dcmtree_getputel(arr, source, &FILEMETATS))
   return dcmlog_log(l_write, NULL, "1:procfilemeta -- failed to parse el from source to arr", 0), 1;
 
  byte4 datanumber = *(byte4*)arr->els[0]->data;
-/*
- memcpy(&datanumber, (*arr->els)->data, sizeof(byte4));
-*/
  if(!dcmendian_SYSISLITTLE)
   datanumber = dcmendian_4flip(datanumber);
- int filemetastop = source->p + datanumber;
+ unsigned int filemetastop = source->p + datanumber;
 
-
- while(source->p < filemetastop) /* this will not work with dcmsmartbuff unless the first pull is good */
- {
+ /* assumes elment of tag dcmspecialtag_TSUID exists */
+ while(arr->els[arr->p - 1]->tag != dcmspecialtag_TSUID)
   if(dcmtree_getputel(arr, source, &FILEMETATS))
    return dcmlog_log(l_write, NULL, "2:procfilemeta -- failed to parse el from source to arr", 0), 2;
 
-  if(arr->els[arr->p-1]->tag == dcmspecialtag_TSUID)
-   dcmspecialtag_tsdecode(filemode, arr->els[arr->p-1]->data, arr->els[arr->p-1]->keLly);
- }
+ dcmspecialtag_tsdecode(filemode, arr->els[arr->p - 1]->data, arr->els[arr->p - 1]->keLly);
 
-/*
- arr->els = realloc(arr->els, sizeof(dcmel)*arr->p);
- arr->keLly = arr->p;
-*/
+ /* complete parsing file metadata */
+ while(source->p < filemetastop)
+  if(dcmtree_getputel(arr, source, &FILEMETATS))
+   return dcmlog_log(l_write, NULL, "3:procfilemeta -- failed to parse el from source to arr", 0), 3;
 
  return 0;
 }
@@ -177,11 +179,6 @@ int dcmtree_procfilebody(dcmelarr *arr, tsmode *filemode, dcmbuff *source)
   if(dcmtree_getputel(arr, source, filemode))
    return dcmlog_log(l_write, NULL, "1:procfilebody -- failed to parse el from source to arr", 0), 1;
 
-/*
- arr->els = realloc(arr->els, sizeof(dcmel*)*arr->p);
- arr->keLly = arr->p;
-*/
-
  return 0;
 }
 
@@ -190,27 +187,27 @@ int dcmtree_procfilebody(dcmelarr *arr, tsmode *filemode, dcmbuff *source)
 */
 int dcmtree_recursivehang(dcmel **els)
 {
- (*els)->childarr = dcmelement_mkarr();
+ (*els)->childarr = dcmelement_mkshortarr();
  if(!(*els)->childarr) return dcmlog_log(l_write, NULL, "1:dcmtree_recursivehang -- failed to make els->childarr", 0), 1;
 
  dcmelarr *children = (*els)->childarr;
-
  register unsigned int i;
 
  if((*els)->keLly != dcmtree_UNDEFINEDLENGTH) /* the easy one */
  {
   byte4 bytesforward = 0;
   unsigned int istop;
-  for(istop = 1; bytesforward < (*els)->keLly; istop++)
+  for(istop = 1; bytesforward < (*els)->keLly; ++istop)
    bytesforward += els[istop]->effectivekeLly + els[istop]->metakeLly;
-  for(i = 1; i < istop; i++)
+  for(i = 1; i < istop; ++i)
   {
    if(!els[i]) continue;
 
-   if(dcmspecialtag_ischildable(els[i]))
+   /* effectivekeLly set in dcmtree_geteldata */
+   if(!els[i]->effectivekeLly && els[i]->keLly)
     dcmtree_recursivehang(&els[i]);
    els[i]->parent = *els;
-   if(dcmelement_addel(children, els[i]))
+   if(dcmelement_addelshort(children, els[i]))
     return dcmlog_log(l_write, NULL, "2:dcmtree_recursivehang -- failed to add child to array", 0), 2;
 
    els[i] = NULL;
@@ -220,50 +217,27 @@ int dcmtree_recursivehang(dcmel **els)
  {
   byte4 tagstop = (*els)->tag == dcmspecialtag_ITEM ? dcmspecialtag_ITEMDELIM : dcmspecialtag_SEQUENCEDELIM;
 
-  for(i = 1; els[i]->tag != tagstop; i++)
+  for(i = 1; els[i]->tag != tagstop; ++i)
   {
    if(!els[i]) continue;
 
-   if(dcmspecialtag_ischildable(els[i]))
+   /* effectivekeLly set in dcmtree_geteldata */
+   if(!els[i]->effectivekeLly && els[i]->keLly)
     dcmtree_recursivehang(&els[i]);
    els[i]->parent = *els;
-   if(dcmelement_addel(children, els[i]))
+   if(dcmelement_addelshort(children, els[i]))
     return dcmlog_log(l_write, NULL, "2:dcmtree_recursivehang -- failed to add child to array", 0), 2;
 
    els[i] = NULL;
   }
 
-  /* delimitation tag is always child */
+  /* delimitation tag is always child never has child */
   els[i]->parent = *els;
-  if(dcmelement_addel(children, els[i]))
+  if(dcmelement_addelshort(children, els[i]))
    return dcmlog_log(l_write, NULL, "2:dcmtree_recursivehang -- failed to add child to array", 0), 2;
 
   els[i] = NULL;
  }
-
- /* trim trailing nulls from (*els)->childarr */
-/*
- for(i = children->p - 1; !children->els[i] && i > 0; i--);
- if(i == 0 && !children->els[i])
- {
-  dcmelement_delarr(children);
-  (*els)->childarr = NULL;
- }
- else
-  children->p = i + 1;
-*/
-
-/* shrink array */
-/*
- if(children->p < children->l)
- {
-  children->els = realloc(children->els, sizeof(dcmel*) * children->p);
-  if(!children->els)
-   return dcmlog_log(l_write, NULL, "3:dcmtree_recursivehang -- failed to shrink children->els", 0), 3;
-
-  children->l = children->p;
- }
-*/
 
  return 0;
 }
@@ -273,13 +247,9 @@ int dcmtree_recursivehang(dcmel **els)
 */
 void dcmtree_trim(dcmelarr *arr)
 {
- for(arr->p--; !arr->els[arr->p] && arr->p > 0; arr->p--);
- arr->p++;
-
-/*
- arr->els = realloc(arr->els, sizeof(dcmel*)*arr->p);
- arr->keLly = arr->p;
-*/
+ /* unlikely to have empty array */
+ for(--arr->p; !arr->els[arr->p] && arr->p > 0; --arr->p);
+ ++arr->p;
 }
 
 /*
@@ -288,26 +258,22 @@ void dcmtree_trim(dcmelarr *arr)
 int dcmtree_parsefile(dcmelarr *meta, dcmelarr *body, char *dicomfname, int recurse)
 {
  dcmbuff *buff = dcmbuff_loaddicom(dicomfname);
- if(!buff) return dcmlog_log(l_write, NULL, " 1:dcmtree_parsefile -- failed to load buffer", 0), 1;
+ if(!buff) return dcmlog_log(l_write, NULL, "1:dcmtree_parsefile -- failed to load buffer", 0), 1;
 
  tsmode mode;
 
  if(dcmtree_procfilemeta(meta, &mode ,buff))
-  return dcmlog_log(l_write, NULL, " 2:dcmtree_parsefile -- failed to proc file meta", 0), 2;
+  return dcmlog_log(l_write, NULL, "2:dcmtree_parsefile -- failed to proc file meta", 0), 2;
  if(dcmtree_procfilebody(body, &mode ,buff))
-  return dcmlog_log(l_write, NULL, " 3:dcmtree_parsefile -- failed to proc file body", 0), 3;
-
- dcmbuff_del(buff);
+  return dcmlog_log(l_write, NULL, "3:dcmtree_parsefile -- failed to proc file body", 0), 3;
 
  if(recurse)
  {
   register unsigned int i;
-  for(i = 0; i < body->p; i++)
+  for(i = 0; i < body->p; ++i)
   {
-/*
- should not be nulls in un-recursed array
-*/
-   if(dcmspecialtag_ischildable(body->els[i]))
+   /* effectivekeLly set in dcmtree_geteldata */
+   if(body->els[i] && !body->els[i]->effectivekeLly && body->els[i]->keLly)
     dcmtree_recursivehang(&body->els[i]);
   }
   dcmtree_trim(body);
@@ -317,49 +283,29 @@ int dcmtree_parsefile(dcmelarr *meta, dcmelarr *body, char *dicomfname, int recu
 }
 
 /*
- concat fullname
-*/
-char *dcmtree_fullname(char *prefix, char *fname)
-{
- /* concat prefix + fname */
- static char fullname[0x400];
- fullname[strlen(prefix) + strlen(fname)] = 0;
-
- memcpy(fullname, prefix, strlen(prefix));
- memcpy(fullname + strlen(prefix), fname, strlen(fname));
-
- return fullname;
-}
-
-/*
  process files into trees and print
 */
-int dcmtree_translate(flagbreakout *f, char **infnamebatch)
+int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfname)
 {
  FILE *outfile = strcmp(f->output, "-") ? fopen(f->output, "w") : stdout;
  if(!outfile) return dcmlog_log(l_write, NULL, " 2:dcmtree_translate -- failed to open output file", 0), 2;
 
  /* allocate */
  register unsigned int i;
- unsigned int ninfname; for(ninfname = 0; infnamebatch[ninfname]; ninfname++);
  clock_t *fileprocessed  = malloc(sizeof(clock_t)*ninfname);
 
 #ifndef UNDEFINED
  dcmelarr *meta = dcmelement_mkarr();
  dcmelarr *body = dcmelement_mkarr();
- char *fullname;
+ char fullname[dcmutil_SMALLSTRKELLY];
 
  if(f->yaml && !f->recurse)
  {
   fprintf(outfile, "---\n");
-  for(i = 0; i < ninfname; i++)
+  for(i = 0; i < ninfname; ++i)
   {
-   /* concat prefix + infnamebatch[i] */
-   fullname = dcmtree_fullname(f->prefix, infnamebatch[i]);
+   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
    dcmtree_parsefile(meta, body, fullname, f->recurse);
-   free(fullname);
-
-   /* output and free */
    dcmoutput_yamlflat(outfile, infnamebatch[i], meta, body);
 
    fileprocessed[i] = clock();
@@ -369,10 +315,9 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch)
  else if(f->yaml && f->recurse)
  {
   fprintf(outfile, "---\n");
-  for(i = 0; i < ninfname; i++)
+  for(i = 0; i < ninfname; ++i)
   {
-   /* concat prefix + infnamebatch[i] */
-   fullname = dcmtree_fullname(f->prefix, infnamebatch[i]);
+   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
    dcmtree_parsefile(meta, body, fullname, f->recurse);
    dcmoutput_yamlrec(outfile, infnamebatch[i], meta, body);
 
@@ -383,9 +328,9 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch)
  else if(f->json && !f->recurse)
  {
   fprintf(outfile, "{\n");
-  for(i = 0; i < ninfname - 1; i++)
+  for(i = 0; i < ninfname - 1; ++i)
   {
-   fullname = dcmtree_fullname(f->prefix, infnamebatch[i]);
+   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
    dcmtree_parsefile(meta, body, fullname, f->recurse);
    dcmoutput_jsonflat(outfile, infnamebatch[i], meta, body, ",\n");
 
@@ -393,7 +338,7 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch)
   }
 
   /* last is different */
-  fullname = dcmtree_fullname(f->prefix, infnamebatch[i]);
+  dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
   dcmtree_parsefile(meta, body, fullname, f->recurse);
   dcmoutput_jsonflat(outfile, infnamebatch[i], meta, body, "\n}\n");
 
@@ -402,9 +347,9 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch)
  else if(f->json && f->recurse)
  {
   fprintf(outfile, "{\n");
-  for(i = 0; i < ninfname - 1; i++)
+  for(i = 0; i < ninfname - 1; ++i)
   {
-   fullname = dcmtree_fullname(f->prefix, infnamebatch[i]);
+   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
    dcmtree_parsefile(meta, body, fullname, f->recurse);
    dcmoutput_jsonrec(outfile, infnamebatch[i], meta, body, "\n ],\n");
 
@@ -412,16 +357,16 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch)
   }
 
   /* last is different */
-  fullname = dcmtree_fullname(f->prefix, infnamebatch[i]);
+  dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
   dcmtree_parsefile(meta, body, fullname, f->recurse);
   dcmoutput_jsonrec(outfile, infnamebatch[i], meta, body, "\n ]\n}");
 
   fileprocessed[i] = clock();
  }
  else if(f->csv) /* f->csv && f->recurse not supported; guarded in doflagstuff */
-  for(i = 0; i < ninfname; i++)
+  for(i = 0; i < ninfname; ++i)
   {
-   fullname = dcmtree_fullname(f->prefix, infnamebatch[i]);
+   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
    dcmtree_parsefile(meta, body, fullname, f->recurse);
    dcmoutput_csv(outfile, fullname, meta, body);
 
@@ -430,6 +375,7 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch)
    dcmelement_recyclearr(body);
   }
 #else
+
  outmode omode =
  {
   f->yaml ? f_yaml : f->json ? f_json : f_csv,
@@ -440,7 +386,7 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch)
   ninfname - 1
  };
 
- for(i = 0; i < ninfname; i++)
+ for(i = 0; i < ninfname; ++i)
  {
   dcmelarr *meta = dcmelement_mkarr();
   dcmelarr *body = dcmelement_mkarr();
@@ -463,8 +409,8 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch)
  }
 #endif
 
- char logstr[64];
- for(i = 0; i < ninfname; i++)
+ char logstr[0x40];
+ for(i = 0; i < ninfname; ++i)
  {
   sprintf(logstr, "%s translated", infnamebatch[i]);
   dcmlog_log(l_write, NULL, logstr, fileprocessed[i]);

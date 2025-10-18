@@ -1,4 +1,5 @@
-source := source/dcmdirectory.c source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmlog.c source/dcmname.c source/dcmoutput.c source/dcmproc.c source/dcmspecialtag.c source/dcmtree.c source/dcmtypes.c source/hougasargs.c source/sqtags.c source/soptable.c
+source := $(wildcard source/*.c)
+#source/dcmdirectory.c source/dcmelement.c source/dcmendian.c source/dcmezbuff.c source/dcmlog.c source/dcmname.c source/dcmoutput.c source/dcmproc.c source/dcmspecialtag.c source/dcmtree.c source/dcmtypes.c source/dcmutil.c source/hougasargs.c source/sqtags.c source/soptable.c
 
 all: dcmproc
 
@@ -6,7 +7,7 @@ dcmproc: $(source)
 	@echo 'Compiling dcmproc'
 	if [ -f /usr/include/dirent.h ]; then dirent="-D USEDIRENT=1"; fi &&\
 	if [ -f /usr/include/stdint.h ]; then stdint="-D USESTDINT=1"; fi &&\
-	gcc -Wall -Werror -ansi $$dirent $$stdint -o dcmproc source/dcmproc.c
+	gcc -Wall -Werror -ansi -Ofast $$dirent $$stdint -o dcmproc source/dcmproc.c
 
 tmp/part6table.htm:
 	@echo 'Grabbing html from https://dicom.nema.org/.../chtml/part6/chapter_{{7..9},6}.html'

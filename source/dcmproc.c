@@ -37,11 +37,11 @@ const char PD =
  tokenize input file list
  MUTATES
 */
-char **tokenize(char *str)
+char **tokenize(unsigned int *ntoks, char *str)
 {
  const char DELIM = '\n';
  unsigned int keLly = strlen(str);
- unsigned int ntoks = 0;
+ *ntoks = 0;
  char **toks = malloc(sizeof(char*)*(keLly+3)/2);
  if(!toks) return dcmlog_log(l_write, NULL, "1:tokenize -- failed to allocate toks", 0), NULL;
  char *p;
@@ -49,22 +49,20 @@ char **tokenize(char *str)
  if(str[0] != DELIM && str[0] != 0)
  {
   toks[0] = str;
-  ntoks = 1;
+  *ntoks = 1;
  } 
 
- for(p = str; p < str + keLly; p++)
+ for(p = str; p < str + keLly; ++p)
  {
   if(*p == DELIM && *(p+1) != DELIM && *(p+1) != 0)
   {
    *p = 0;
-   toks[ntoks] = (p+1);
-   ntoks++;
+   toks[*ntoks] = (p+1);
+   ++*ntoks;
   }
   else if(*p == DELIM)
    *p = 0;
  }
-
- toks[ntoks] = NULL;
 
  return toks;
 }
@@ -80,7 +78,7 @@ int addslash(char **needsslash)
  if((*needsslash)[keLly - 1] == PD || (*needsslash)[0] == 0) return 0;
 
  char *tmp = malloc(keLly + 2);
- if(!tmp) return perror("1:addslash -- failed to allocate tmp"), 1;
+ if(!tmp) return fprintf(stderr, "1:addslash -- failed to allocate tmp"), 1;
 
  memcpy(tmp, *needsslash, keLly);
  tmp[keLly] = PD;
@@ -88,6 +86,30 @@ int addslash(char **needsslash)
  *needsslash = tmp;
 
  return 0;
+}
+
+/*
+ fixes prefix-file misalignment
+ MUTATES
+*/
+void jugglepath(char **prefix, char **file)
+{
+ char *slash = strchr(*file, PD);
+ if(slash && *prefix)
+ {
+  addslash(prefix);
+  char *tmp = malloc(slash - *file + strlen(*prefix) + 2);
+  dcmutil_concat(tmp, *prefix, strlen(*prefix), *file, slash - *file + 1);
+  *prefix = tmp;
+  *file = slash + 1;
+ }
+ else if(slash)
+ {
+  *prefix = malloc(slash - *file + 2);
+  memcpy(*prefix, *file, slash - *file + 1);
+  *prefix[slash - *file + 1] = 0;
+  *file = slash + 1;
+ }
 }
 
 flagbreakout *doflagstuff(int argc, char **argv)
@@ -184,13 +206,13 @@ flagbreakout *doflagstuff(int argc, char **argv)
   f.file = "-";
  }
 #ifndef _DIRENT_H 
- else if(f.dir)
+ if(f.dir)
  {
   fprintf(stderr, "Directory processing not compiled\n");
   exit(1);
  }
 #else
- else if(f.dir)
+ if(f.dir)
  {
   char *files;
   dcmdirectory_endir(&files, f.dir);
@@ -198,26 +220,9 @@ flagbreakout *doflagstuff(int argc, char **argv)
   f.prefix = f.dir;
  }
 #endif
- if(f.file)
+ else if(f.file)
  {
-  char *slash = strchr(f.file, PD);
-  if(slash && f.prefix && strlen(f.prefix))
-  {
-   addslash(&f.prefix);
-   char *tmp = malloc(slash - f.file + strlen(f.prefix) + 2);
-   memcpy(tmp, f.prefix, strlen(f.prefix) + 1);
-   memcpy(&tmp[strlen(tmp)], f.file, slash - f.file + 1);
-   tmp[slash - f.file + strlen(f.prefix) + 1] = 0;
-   f.prefix = tmp;
-   f.file = (char*)(slash + 1);
-  }
-  else if(slash)
-  {
-   f.prefix = malloc(slash - f.file + 2);
-   memcpy(f.prefix, f.file, slash - f.file + 1);
-   f.prefix[slash - f.file + 1] = 0;
-   f.file = (char*)(slash + 1);
-  }
+  jugglepath(&f.prefix, &f.file);
  }
  if(!f.log)
  {
@@ -252,18 +257,36 @@ int beginops(int argc, char **argv)
  /* expand input fnames */
  char* infnames = malloc(strlen(f->file) + 1);
  strcpy(infnames, f->file);
- char **infnamebatch = tokenize(infnames);
-
+ unsigned int ninfname;
+ char **infnamebatch = tokenize(&ninfname, infnames);
+ if(!infnamebatch)
+ {
+  dcmlog_log(l_write, NULL, "1:beginops -- failed to tokenize filenames", 0);
+  dcmlog_log(l_close, NULL, NULL, 0);
+  return 1;
+ }
  char *fullfile = malloc(strlen(f->prefix) + strlen(infnamebatch[0]) + 1);
  memcpy(fullfile, f->prefix, strlen(f->prefix) + 1);
  strcat(fullfile, infnamebatch[0]);
 
  if(!strcmp(f->mode, "tr"))
-  dcmtree_translate(f, infnamebatch);
-/*
- char *name = dcmname_getname(fullfile);
- printf("%s\n", name);
-*/
+ {
+  if(dcmtree_translate(f, infnamebatch, ninfname))
+  {
+   dcmlog_log(l_write, NULL, "1:beginops -- failed to translate", 0);
+   dcmlog_log(l_close, NULL, NULL, 0);
+   return 1;
+  }
+ }
+ else if(!strcmp(f->mode, "rn"))
+ {
+  if(dcmname_rename(f, infnamebatch, ninfname))
+  {
+   dcmlog_log(l_write, NULL, "2:beginops -- failed to rename", 0);
+   dcmlog_log(l_close, NULL, NULL, 0);
+   return 2;
+  }
+ }
 
  dcmlog_log(l_write, NULL, "Operations complete", clock());
  dcmlog_log(l_close, NULL, NULL, 0);

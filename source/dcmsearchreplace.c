@@ -22,7 +22,7 @@
 void dcmsearchreplace_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
 {
  unsigned int i;
- for(i = 0; i < arr->p; i++)
+ for(i = 0; i < arr->p; ++i)
  {
   if(!arr->els[i]) continue;
 
@@ -39,7 +39,7 @@ void dcmsearchreplace_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
 void dcmsearchreplace_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned int keLly)
 {
  unsigned int i;
- for(i = 0; i < arr->p; i++)
+ for(i = 0; i < arr->p; ++i)
  {
   if(!arr->els[i]) continue;
 
@@ -58,7 +58,7 @@ dcmel *dcmsearchreplace_cpbody(unsigned int *codepoint, unsigned int metal; dcme
 
  unsigned int i;
  *codepoint -= 132 - metal; 
- for(i = 0; i < body->p && cp > 0; i++)
+ for(i = 0; i < body->p && cp > 0; ++i)
  {
   if(!body->els[i]) continue;
 
@@ -127,30 +127,30 @@ int dcmsearchreplace_replacebody(dcmel *target, byte1 *newval, unsigned int keLl
 /*
 int dcmsearchreplace_search(dcmelarr **found, dcmelarr *arr, byte4 tag)
 {
- if(!arr) return perror("1:dcmsearchreplace_search -- unrecursed is null"), 1;
+ if(!arr) return dcmlog_log(l_write, NULL, "1:dcmsearchreplace_search -- unrecursed is null", 0)1;
 
  dcmelement_mkarr(found);
 
  unsigned int i;
- for(i = 0; i < unrecursed->p; i++)
+ for(i = 0; i < unrecursed->p; ++i)
  {
   if(unrecursed->els[i]->tag == tag)
   {
    if((*found)->p == (*found)->l)
    {
     (*found)->els = realloc((*found)->els, sizeof(dcmel) * ((*found)->l + dcmelement_ARRTOADD));
-    if(!(*found)->els) return perror("1:dcmsearchreplace_search -- failed to expand found->els"), 2;
+    if(!(*found)->els) return dcmlog_log(l_write, NULL, "1:dcmsearchreplace_search -- failed to expand found->els", 0)2;
     (*found)->l += dcmelement_ARRTOADD;
    }
 
    (*found)->els[p] = unrecursed->els[i];
-   (*found)->p++;
+   (*found)->++p;
   }
 
   if((*found)->p < (*found)->l)
   {
    (*found)->els = realloc((*found)->els, sizeof(dcmel) * (*found)->p);
-   if((*found)->els = NULL) return perror("3:dcmsearchreplace_search -- failed to shrink found->els"), 3;
+   if((*found)->els = NULL) return dcmlog_log(l_write, NULL, "3:dcmsearchreplace_search -- failed to shrink found->els", 0)3;
    (*found)->l = (*found)->p;
   }
 

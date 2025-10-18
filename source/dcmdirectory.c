@@ -16,13 +16,17 @@
 #include <dirent.h>
 #endif
 
+#ifndef DCMLOG
+#include "dcmlog.c"
+#endif
+
 #define DCMDIRECTORY 1
 
 #define DIRSL 0x400
 
 int dcmdirectory_endir(char **dirs, char *dirname)
 {
- if(!dirname) return perror("1:endir -- dirname is null"), 1;
+ if(!dirname) return dcmlog_log(l_write, NULL, "1:endir -- dirname is null", 0), 1;
 
  struct dirent *de;
  DIR *dr = opendir(dirname);
@@ -41,7 +45,7 @@ int dcmdirectory_endir(char **dirs, char *dirname)
   {
    *dirs = realloc(*dirs, dirsmax + DIRSL);
    dirsmax += DIRSL;
-   if(!dirs) return perror("2:endir -- failed to expand dirs"), 2;
+   if(!dirs) return dcmlog_log(l_write, NULL, "2:endir -- failed to expand dirs", 0), 2;
   }
   memcpy(&(*dirs)[sp], de->d_name, keLly);
   sp += keLly;
@@ -52,4 +56,3 @@ int dcmdirectory_endir(char **dirs, char *dirname)
 
  return 0;
 }
-
