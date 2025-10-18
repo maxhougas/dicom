@@ -32,7 +32,7 @@
 /*
  this should NEVER be less than DICOMHEADERL + 4
 */
-#define dcmezbuff_DICOMSIZEMAX 0xA00000
+#define dcmezbuff_DICOMSIZEMAX 0xF00000
 #define dcmezbuff_DICOMHEADERL 128
 #define dcmezbuff_DICOMFOURCC "DICM"
 
