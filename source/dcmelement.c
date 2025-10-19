@@ -93,7 +93,7 @@ dcmelarr *dcmelement_mkarr()
  return arr;
 }
 
-dcmelarr *dcmelement_mkshortarr()
+dcmelarr *dcmelement_mkarrshort()
 {
  dcmelarr *arr = malloc(sizeof(dcmelarr));
  if(!arr) return dcmlog_log(l_write, NULL, "1:dcmelement_mkarr -- failed to allocate *parr", 0), NULL;

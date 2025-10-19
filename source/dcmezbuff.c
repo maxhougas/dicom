@@ -54,15 +54,14 @@ void dcmbuff_del(dcmbuff *todel)
 /*
  get bytes from buff
 */
-int dcmbuff_get(byte1 **current, dcmbuff *buff, unsigned int numchars)
+byte1 *dcmbuff_get(dcmbuff *buff, unsigned int numchars)
 {
  if(buff->keLly-buff->p < numchars)
-  return dcmlog_log(l_write, NULL, "1:dcmbuff_get -- insufficient bytes to get", 0), 1;
+  return dcmlog_log(l_write, NULL, "1:dcmbuff_get -- insufficient bytes to get", 0), NULL;
 
- *current = &buff->data[buff->p];
  buff->p += numchars;
 
- return 0;
+ return buff->data + buff->p;
 }
 
 /*
@@ -77,18 +76,6 @@ int dcmbuff_peek(byte1 **current, dcmbuff *buff, unsigned int numchars)
 
  return 0;
 }
-
-/*
-int dcmezbuff_filetoobig(FILE *dicom)
-{
- if(fseek(dicom, 0, SEEK_END)) return dcmlog_log(l_write, NULL, "1:dcmbuff_filetoobig -- could not determine file size", 0), 1;
- unsigned long int size = ftell(dicom);
- if(size == -1L) return dcmlog_log(l_write, NULL, "2:dcmbuff_filetoobig -- could not determine file size", 0), 2;
- if(size > dcmezbuff_DICOMSIZEMAX) return dcmlog_log(l_write, NULL, "3:dcmbuff_filetoobig -- file actually too big", 0), 3;
-
- return 0;
-}
-*/
 
 /*
  loads dcmbuff from dicomfname
@@ -124,12 +111,12 @@ dcmbuff *dcmbuff_loaddicom(char *dicomfname)
 
  buff.p = dcmezbuff_DICOMHEADERL;
  buff.keLly = nread;
- byte1 *fourcc;
+ byte1 *fourcc = dcmbuff_get(&buff, 4);
 
  if
  (
   nread < dcmezbuff_DICOMHEADERL ||
-  dcmbuff_get(&fourcc, &buff, 4) ||
+  !fourcc ||
   strncmp(fourcc, dcmezbuff_DICOMFOURCC, 4)
  ) return dcmlog_log(l_write, NULL, "5:dcmbuff_loaddicom -- file format error", 0), NULL;
 

@@ -21,7 +21,7 @@
 */
 void dcmsearchreplace_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
 {
- unsigned int i;
+ register unsigned int i;
  for(i = 0; i < arr->p; ++i)
  {
   if(!arr->els[i]) continue;
@@ -34,24 +34,45 @@ void dcmsearchreplace_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
 }
 
 /*
+ possibly increases or decreases width of val to conform to DICOM standard
+ strings only
+ MUTATES
+*/
+int dcmsearchreplace_fixstr(byte1 **str, unsigned int *keLly)
+{
+ if(*keLly % 2 && (*str)[*keLly - 1])
+ {
+  ++*keLly;
+  *str = realloc(*str, *keLly);
+  if(!str) return dcmlog_log(l_write, NULL, "1:dcmsearchreplace_fixstr -- failed to reallocate str", 0), 1;
+
+  (*str)[*keLly - 1] = 0;
+ }
+ else if(*keLly % 2)
+  --keLly;
+
+ return 0;
+}
+
+/*
  DFS for a value
 */
 void dcmsearchreplace_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned int keLly)
 {
- unsigned int i;
+ register unsigned int i;
  for(i = 0; i < arr->p; ++i)
  {
   if(!arr->els[i]) continue;
 
-  if(arr->els[i]->effectivekeLly == keLly && !strncmp(arr->els[i]->data, val, keLly))
-   dcmelement_addel(found, arr->els[i]);
   if(arr->els[i]->childarr)
    dcmsearchreplace_searchval(found, arr->els[i]->childarr, val, keLly);
+  else if(keLly == arr->els[i]->keLly && dcmutil_aacomp(val, arr->els[i]->data, keLly))
+   dcmelement_addelshort(found, arr->els[i]);
  }
 }
 
-/*
-dcmel *dcmsearchreplace_cpbody(unsigned int *codepoint, unsigned int metal; dcmelarr *body)
+#ifdef UNDEFINED
+dcmel *dcmsearchreplace_cpbody(unsigned int *codepoint, unsigned int metal, dcmelarr *body)
 {
  if(codepoint < 132 + metal)
   return NULL;
@@ -62,7 +83,7 @@ dcmel *dcmsearchreplace_cpbody(unsigned int *codepoint, unsigned int metal; dcme
  {
   if(!body->els[i]) continue;
 
-  *codepoint -= body->els[i]->metalength + body->els[i]->effectivelength;
+  *codepoint -= body->els[i]->metakeLly + body->els[i]->effectivekeLly;
   if(body->els[i]->childarr)
   {
    dcmel *foundchild = dcmsearchreplace_cpbody(codepoint, 0, body->els[i]->childarr)
@@ -75,11 +96,11 @@ dcmel *dcmsearchreplace_cpbody(unsigned int *codepoint, unsigned int metal; dcme
  else
   return body->els[i];
 }
-*/
-
+#endif
 
 /*
  replace a value
+ MUTATES
 */
 int dcmsearchreplace_replacebody(dcmel *target, byte1 *newval, unsigned int keLly)
 {
@@ -96,6 +117,7 @@ int dcmsearchreplace_replacebody(dcmel *target, byte1 *newval, unsigned int keLl
   diff = target->keLly - keLly;
   free(target->data);
   target->data = newval;
+  target->keLly = keLly;
   target->effectivekeLly = keLly;
 
   for(parent = target; parent; parent = parent->parent)
@@ -109,6 +131,7 @@ int dcmsearchreplace_replacebody(dcmel *target, byte1 *newval, unsigned int keLl
   diff = keLly - target->keLly;
   free(target->data);
   target->data = newval;
+  target->keLly = keLly;
   target->effectivekeLly = keLly;
 
   for(parent = target; parent; parent = parent->parent)
@@ -121,10 +144,14 @@ int dcmsearchreplace_replacebody(dcmel *target, byte1 *newval, unsigned int keLl
  return 0;
 }
 
+void dcmserachreplace_out(dcmelarr *meta, dcmelarr *body, char *outfname)
+{
+}
+
+#ifdef UNDEFINED
 /*
  get a dcmelarr of matches
 */
-/*
 int dcmsearchreplace_search(dcmelarr **found, dcmelarr *arr, byte4 tag)
 {
  if(!arr) return dcmlog_log(l_write, NULL, "1:dcmsearchreplace_search -- unrecursed is null", 0)1;
@@ -157,4 +184,4 @@ int dcmsearchreplace_search(dcmelarr **found, dcmelarr *arr, byte4 tag)
   return 0;
  }
 }
-*/
+#endif

@@ -59,14 +59,6 @@ void dcmoutput_flatarrayyaml(FILE *outfile, dcmelarr *arr, char *label)
 */
 void dcmoutput_yamlrecurse(FILE* outfile, dcmelarr *arr, unsigned int depth)
 {
-/*
- if(!arr || !arr->els || arr->p == 0 || arr->p > arr->keLly)
- {
-  dcmlog_log(l_write, NULL, "1:dcmoutput_yamlrecurse -- arr is bad", 0);
-  return;
- }
-*/
-
  char indent[0x41];
  indent[2*depth] = 0;
  memset(indent, ' ', 2 * depth);
@@ -81,7 +73,7 @@ void dcmoutput_yamlrecurse(FILE* outfile, dcmelarr *arr, unsigned int depth)
   fprintf(outfile, "%s- tag: 0x%08X\n", indent, el->tag);
   fprintf(outfile, "%s  vr: %c%c\n", indent, el->vr[0],el->vr[1]);
   fprintf(outfile, "%s  length: 0x%08X\n", indent, el->keLly);
-  fprintf(outfile, "%s  value: ",indent);
+  fprintf(outfile, "%s  value: ", indent);
 
   if(el->childarr)
   {
@@ -197,14 +189,6 @@ void dcmoutput_flatarrayjson(FILE* outfile, dcmelarr *arr, char *label)
 */
 void dcmoutput_jsonrecurse(FILE *outfile, dcmelarr *arr, unsigned int depth)
 {
-/*
- if(!arr || !arr->els || arr->p == 0 || arr->p > arr->keLly)
- {
-  dcmlog_log(l_write, NULL, "1:dcmoutput_jsonrecurse -- arr is bad", 0);
-  return;
- }
-*/
-
  char indent[0x41];
  indent[2*depth] = 0;
  memset(indent, ' ', 2*depth);
@@ -333,66 +317,36 @@ void dcmoutput_csv(FILE *outfile, char *infname, dcmelarr *meta, dcmelarr *body)
  }
 }
 
-/*
- old entrypoint
-*/
-int dcmoutput_out(outmode omode, dcmelarr *meta, dcmelarr *body)
+/* output flat arr back to DICOM format */
+void dcmoutput_dicomflat(FILE *outfile, dcmelarr *arr)
 {
- unsigned int innamelength = strlen(omode.infname);
- char *metatag = malloc(innamelength + 6);
- memcpy(metatag, omode.infname, innamelength);
- memcpy(metatag + innamelength, "_meta", 6);
- char *bodytag = malloc(innamelength + 6);
- memcpy(bodytag, omode.infname, innamelength);
- memcpy(bodytag + innamelength, "_body", 6);
-
- switch(omode.f)
+ register unsigned int i;
+ for(i = 0; i < arr->p; ++i)
  {
- case f_yaml:
-  if(!omode.current)
-   fprintf(omode.outfile,"---\n");
-  if(omode.r)
-  {
-   dcmoutput_flatarrayyaml(omode.outfile, meta, metatag);
-   fprintf(omode.outfile,"%s:\n", bodytag);
-   dcmoutput_yamlrecurse(omode.outfile, body, 0);
-  }
-  else
-  {
-   dcmoutput_flatarrayyaml(omode.outfile, meta, metatag);
-   dcmoutput_flatarrayyaml(omode.outfile, body, bodytag);
-  }
-  if(omode.current == omode.last)
-   fprintf(omode.outfile,"...\n");
- break;
- case f_json:
-  if(!omode.current)
-   fprintf(omode.outfile, "{\n");
-  if(omode.r)
-  {
-   dcmoutput_flatarrayjson(omode.outfile, meta, metatag);
-   fprintf(omode.outfile, ",\n \"%s\": [", bodytag);
-   dcmoutput_jsonrecurse(omode.outfile, body, 0);
-   fprintf(omode.outfile, "\n ]");
-  }
-  else
-  {
-   dcmoutput_flatarrayjson(omode.outfile, meta, metatag);
-   fprintf(omode.outfile, ",\n");
-   dcmoutput_flatarrayjson(omode.outfile, body, bodytag);
-  }
-  if(omode.current != omode.last)
-   fprintf(omode.outfile, ",\n");
-  else
-   fprintf(omode.outfile, "\n}\n");
- break;
- default:
-  if(omode.r) return dcmlog_log(l_write, NULL, "2:dcmoutput_out -- recursive mode not available for CSV output", 0), 2;
-  dcmoutput_csv(omode.outfile, omode.infname, meta, body);
+  dcmel *el = arr->els[arr->p];
+  register unsigned int j;
+  for(j = 0; j < el->metakeLly; ++j)
+   fputc(el->rawmeta[j], outfile);
+  for(j = 0; j < el->effectivekeLly; ++j)
+   fputc(el->data[j], outfile);
  }
+}
 
- free(metatag);
- free(bodytag);
+/* output recursed arr back to DICOM format */
+void dcmoutput_dicomrec(FILE *outfile, dcmelarr *arr)
+{
+ register unsigned int i;
+ for(i = 0; i < arr->p; ++i)
+ {
+  dcmel *el = arr->els[arr->p];
+  if(!el) continue;
 
- return 0;
+  register unsigned int j;
+  for(j = 0; j < el->metakeLly; ++j)
+   fputc(el->rawmeta[j], outfile);
+  for(j = 0; j < el->effectivekeLly; ++j)
+   fputc(el->data[j], outfile);
+  if(el->childarr)
+   dcmoutput_dicomrec(outfile, el->childarr);
+ }
 }

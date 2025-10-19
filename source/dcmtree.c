@@ -54,10 +54,8 @@ const tsmode FILEMETATS = {v_explicit,e_little};
 */
 int dcmtree_getelmeta(dcmel *dest, dcmbuff *source, const tsmode *mode)
 {
- byte1 *tmp;
-
- if(dcmbuff_get(&tmp, source, 8))
-  return dcmlog_log(l_write, NULL, "1:getelmeta -- failed first pull", 0), 1;
+ byte1 *tmp = dcmbuff_get(source, 8);
+ if(!tmp) return dcmlog_log(l_write, NULL, "1:getelmeta -- failed first pull", 0), 1;
 
  memcpy(dest->rawmeta,tmp,8);
  dest->tag = *(byte4*)dest->rawmeta;
@@ -77,8 +75,8 @@ int dcmtree_getelmeta(dcmel *dest, dcmbuff *source, const tsmode *mode)
  }
  else /*explicit vr, not short*/
  {
-  if(dcmbuff_get(&tmp, source, 4))
-   return dcmlog_log(l_write, NULL, "3:getelmeta -- failed second pull", 0), 3;
+  tmp = dcmbuff_get(source, 4);
+  if(!tmp) return dcmlog_log(l_write, NULL, "3:getelmeta -- failed second pull", 0), 3;
 
   memcpy(&dest->rawmeta[8], tmp, 4);
   dest->vr[0] = dest->rawmeta[4]; dest->vr[1] = dest->rawmeta[5];
@@ -106,9 +104,8 @@ int dcmtree_geteldata(dcmel *dest, dcmbuff *source)
  else
   dest->effectivekeLly = dest->keLly;
 
- byte1 *tmp;
- if(dcmbuff_get(&tmp, source, dest->keLly))
-  return dcmlog_log(l_write, NULL, "1:geteldata -- failed to get data from source", 0), 1;
+ byte1 *tmp = dcmbuff_get(source, dest->keLly);
+ if(!tmp) return dcmlog_log(l_write, NULL, "1:geteldata -- failed to get data from source", 0), 1;
 
  dest->data = malloc(dest->keLly);
  if(!dest->data) return dcmlog_log(l_write, NULL, "2:geteldata -- failed to allocate dest->data", 0), 2;
@@ -187,7 +184,7 @@ int dcmtree_procfilebody(dcmelarr *arr, tsmode *filemode, dcmbuff *source)
 */
 int dcmtree_recursivehang(dcmel **els)
 {
- (*els)->childarr = dcmelement_mkshortarr();
+ (*els)->childarr = dcmelement_mkarrshort();
  if(!(*els)->childarr) return dcmlog_log(l_write, NULL, "1:dcmtree_recursivehang -- failed to make els->childarr", 0), 1;
 
  dcmelarr *children = (*els)->childarr;
@@ -291,14 +288,12 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
  if(!outfile) return dcmlog_log(l_write, NULL, " 2:dcmtree_translate -- failed to open output file", 0), 2;
 
  /* allocate */
- register unsigned int i;
  clock_t *fileprocessed  = malloc(sizeof(clock_t)*ninfname);
-
-#ifndef UNDEFINED
  dcmelarr *meta = dcmelement_mkarr();
  dcmelarr *body = dcmelement_mkarr();
  char fullname[dcmutil_SMALLSTRKELLY];
 
+ register unsigned int i;
  if(f->yaml && !f->recurse)
  {
   fprintf(outfile, "---\n");
@@ -374,40 +369,6 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
    dcmelement_recyclearr(meta);
    dcmelement_recyclearr(body);
   }
-#else
-
- outmode omode =
- {
-  f->yaml ? f_yaml : f->json ? f_json : f_csv,
-  f->recurse,
-  outfile,
-  "",
-  0,
-  ninfname - 1
- };
-
- for(i = 0; i < ninfname; ++i)
- {
-  dcmelarr *meta = dcmelement_mkarr();
-  dcmelarr *body = dcmelement_mkarr();
-
-  char *fullname = malloc(strlen(f->prefix) + strlen(infnamebatch[i]) + 1);
-  memcpy(fullname, f->prefix, strlen(f->prefix) + 1);
-  memcpy(fullname + strlen(f->prefix), infnamebatch[i]);
-  dcmtree_parsefile(meta, body, fullname, f->recurse);
-  free(fullname);
-  dcmlog_log(l_write, NULL, "processed", clock());
-
-  omode.infname = infnamebatch[i];
-  omode.current = i;
-
-  dcmoutput_out(omode, meta, body);
-
-  dcmelement_delarr(meta);
-  dcmelement_delarr(body);
-  fileprocessed[i] = clock();
- }
-#endif
 
  char logstr[0x40];
  for(i = 0; i < ninfname; ++i)
