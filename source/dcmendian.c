@@ -29,9 +29,9 @@ void dcmendian_swap(byte1* toswap, unsigned int size)
  int i;
  for(i=0; i < size/2; ++i)
  {
-  toswap[i] ^= toswap[size-i];
-  toswap[size-i] ^= toswap[i];
-  toswap[i] ^= toswap[size=i];
+  toswap[i] ^= toswap[size - i];
+  toswap[size - i] ^= toswap[i];
+  toswap[i] ^= toswap[size - i];
  }
 }
 

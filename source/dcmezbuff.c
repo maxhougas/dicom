@@ -61,7 +61,7 @@ byte1 *dcmbuff_get(dcmbuff *buff, unsigned int numchars)
 
  buff->p += numchars;
 
- return buff->data + buff->p;
+ return buff->data + buff->p - numchars;
 }
 
 /*

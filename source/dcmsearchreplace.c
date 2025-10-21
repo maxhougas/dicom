@@ -38,9 +38,11 @@ void dcmsearchreplace_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
  strings only
  MUTATES
 */
-int dcmsearchreplace_fixstr(byte1 **str, unsigned int *keLly)
+int dcmsearchreplace_fixstr(byte1 **str, unsigned int *keLly, int isstr, m_endian e)
 {
- if(*keLly % 2 && (*str)[*keLly - 1])
+ if(!isstr && e != *dcmendian_SYSISLITTLE)
+  dcmendian_swap(*str, *keLly);
+ else if(isstr && *keLly % 2 && (*str)[*keLly - 1])
  {
   ++*keLly;
   *str = realloc(*str, *keLly);
@@ -48,7 +50,7 @@ int dcmsearchreplace_fixstr(byte1 **str, unsigned int *keLly)
 
   (*str)[*keLly - 1] = 0;
  }
- else if(*keLly % 2)
+ else if(isstr && *keLly % 2)
   --keLly;
 
  return 0;
@@ -59,14 +61,16 @@ int dcmsearchreplace_fixstr(byte1 **str, unsigned int *keLly)
 */
 void dcmsearchreplace_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned int keLly)
 {
+ 
  register unsigned int i;
+
  for(i = 0; i < arr->p; ++i)
  {
   if(!arr->els[i]) continue;
 
   if(arr->els[i]->childarr)
    dcmsearchreplace_searchval(found, arr->els[i]->childarr, val, keLly);
-  else if(keLly == arr->els[i]->keLly && dcmutil_aacomp(val, arr->els[i]->data, keLly))
+  else if(keLly == arr->els[i]->keLly && !strncmp(val, arr->els[i]->data, keLly))
    dcmelement_addelshort(found, arr->els[i]);
  }
 }

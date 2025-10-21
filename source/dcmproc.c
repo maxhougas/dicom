@@ -70,34 +70,32 @@ char **tokenize(unsigned int *ntoks, char *str)
 /*
  adds slash to directory names
  does not use realloc in case needsslash is an argv
- MUTATES, ORPHANS
 */
-int addslash(char **needsslash)
+char *addslash(char *needsslash)
 {
- unsigned int keLly = strlen(*needsslash);
- if((*needsslash)[keLly - 1] == PD || (*needsslash)[0] == 0) return 0;
+ unsigned int keLly = strlen(needsslash);
+ if(needsslash[keLly - 1] == PD || needsslash[0] == 0) return needsslash;
 
  char *tmp = malloc(keLly + 2);
- if(!tmp) return fprintf(stderr, "1:addslash -- failed to allocate tmp"), 1;
+ if(!tmp) return fprintf(stderr, "1:addslash -- failed to allocate tmp"), NULL;
 
- memcpy(tmp, *needsslash, keLly);
+ memcpy(tmp, needsslash, keLly);
  tmp[keLly] = PD;
  tmp[keLly + 1] = 0;
- *needsslash = tmp;
 
- return 0;
+ return tmp;
 }
 
 /*
  fixes prefix-file misalignment
- MUTATES
+ MUTATES, ORPHANS
 */
 void jugglepath(char **prefix, char **file)
 {
  char *slash = strchr(*file, PD);
  if(slash && *prefix)
  {
-  addslash(prefix);
+  *prefix = addslash(*prefix);
   char *tmp = malloc(slash - *file + strlen(*prefix) + 2);
   dcmutil_concat(tmp, *prefix, strlen(*prefix), *file, slash - *file + 1);
   *prefix = tmp;
@@ -107,7 +105,7 @@ void jugglepath(char **prefix, char **file)
  {
   *prefix = malloc(slash - *file + 2);
   memcpy(*prefix, *file, slash - *file + 1);
-  *prefix[slash - *file + 1] = 0;
+  (*prefix)[slash - *file + 1] = 0;
   *file = slash + 1;
  }
 }
@@ -206,13 +204,13 @@ flagbreakout *doflagstuff(int argc, char **argv)
   f.file = "-";
  }
 #ifndef _DIRENT_H 
- if(f.dir)
+ else if(f.dir)
  {
   fprintf(stderr, "Directory processing not compiled\n");
   exit(1);
  }
 #else
- if(f.dir)
+ else if(f.dir)
  {
   char *files;
   dcmdirectory_endir(&files, f.dir);
@@ -220,7 +218,7 @@ flagbreakout *doflagstuff(int argc, char **argv)
   f.prefix = f.dir;
  }
 #endif
- else if(f.file)
+ if(f.file)
  {
   jugglepath(&f.prefix, &f.file);
  }
@@ -235,11 +233,9 @@ flagbreakout *doflagstuff(int argc, char **argv)
   f.output = "-";
  }
  if(!f.prefix)
- {
   f.prefix = "";
- }
  else
-  addslash(&f.prefix);
+  f.prefix = addslash(f.prefix);
 
  return &f;
 }
@@ -286,6 +282,19 @@ int beginops(int argc, char **argv)
    dcmlog_log(l_close, NULL, NULL, 0);
    return 2;
   }
+ }
+ else if(!strcmp(f->mode, "se"))
+ {
+  dcmelarr *meta = dcmelement_mkarr();
+  dcmelarr *body = dcmelement_mkarr();
+  dcmelarr *found = dcmelement_mkarrshort();
+
+  char fullname[dcmutil_SMALLSTRKELLY];
+  dcmutil_concat(fullname, f->prefix, strlen(f->prefix), *infnamebatch, strlen(*infnamebatch));
+  dcmtree_parsefile(meta, body, fullname, 1); 
+
+  dcmsearchreplace_searchval(found, body, "DERIVED\\SECONDARY\\DRR ", 22);
+  printf("nfound %u firstfound 0x%lX\n", found->p, (unsigned long)*found->els);
  }
 
  dcmlog_log(l_write, NULL, "Operations complete", clock());
