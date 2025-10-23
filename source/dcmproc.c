@@ -119,10 +119,12 @@ flagbreakout *doflagstuff(int argc, char **argv)
  char *FLAG_FILE[] = {"\1","f","file","input",NULL};
  char *FLAG_JSON[] = {"\0","j","json","JSON",NULL};
  char *FLAG_LOG[] = {"\1","l","log",NULL};
- char *FLAG_MODE[] = {"\1", "m", "mode", "op", "operation", NULL};
+ char *FLAG_MODE[] = {"\1","m","mode","op","operation",NULL};
+ char *FLAG_NUMBER[] = {"\0","n","number","num",NULL};
  char *FLAG_OUTPUT[] = {"\1","o","output",NULL};
  char *FLAG_PREFIX[] = {"\1","p","prefix",NULL};
  char *FLAG_RECURSE[] = {"\0","r","recurse","tree",NULL};
+ char *FLAG_SEARCH[] = {"\1","s","search", NULL};
  char *FLAG_YAML[] = {"\0","y","yaml","YAML",NULL};
  char **VALIDFLAGS[] =
  {
@@ -134,10 +136,12 @@ flagbreakout *doflagstuff(int argc, char **argv)
 /* 05 */ FLAG_JSON,
 /* 06 */ FLAG_LOG,
 /* 07 */ FLAG_MODE,
-/* 08 */ FLAG_OUTPUT,
-/* 09 */ FLAG_PREFIX,
-/* 10 */ FLAG_RECURSE,
-/* 11 */ FLAG_YAML,
+/* 08 */ FLAG_NUMBER,
+/* 09 */ FLAG_OUTPUT,
+/* 10 */ FLAG_PREFIX,
+/* 11 */ FLAG_RECURSE,
+/* 12 */ FLAG_SEARCH,
+/* 13 */ FLAG_YAML,
          NULL
  };
 
@@ -152,36 +156,41 @@ flagbreakout *doflagstuff(int argc, char **argv)
  f.json    = chart.flagc[ 5];
  f.log     = chart.flagv[ 6];
  f.mode    = chart.flagv[ 7];
- f.output  = chart.flagv[ 8];
- f.prefix  = chart.flagv[ 9];
- f.recurse = chart.flagc[10];
- f.yaml    = chart.flagc[11];
+ f.number  = chart.flagc[ 8];
+ f.output  = chart.flagv[ 9];
+ f.prefix  = chart.flagv[10];
+ f.recurse = chart.flagc[11];
+ f.search  = chart.flagv[12];
+ f.yaml    = chart.flagc[13];
 
  if(f.help)
  {
-   printf("-h, --help    : this\n");
-   printf("-v, --version : version info (build date)\n");
-   printf("-c, --csv     : output in CSV format\n");
-   printf("    --CSV\n");
-   printf("-d, --dir     : operate on contents of directory if compiled for\n");
-   printf("    --directory\n");
-   printf("    --folder\n");
-   printf("-f, --file    : file to process; stdin is default\n");
-   printf("    --input\n");
-   printf("-j, --json    : output in JSON format\n");
-   printf("    --JSON\n");
-   printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
-   printf("                default is stderr\n");
-   printf("-m, --mode    : mode of operations; tr = translate | rn = rename\n");
-   printf("    --op\n");
-   printf("    --operation\n");
-   printf("-o, --output  : file to write to (kablam!) stdout is default\n");
-   printf("-p, --prefix  : input file prefix\n");
-   printf("-r, --recurse : engage recursive mode; hang children\n");
-   printf("    --tree\n");
-   printf("-y, --yaml    : output in YAML format (default)\n");
-   printf("    --YAML\n");
-   exit(0);
+  printf("-h, --help    : this\n");
+  printf("-v, --version : version info (build date)\n");
+  printf("-c, --csv     : output in CSV format\n");
+  printf("    --CSV\n");
+  printf("-d, --dir     : operate on contents of directory if compiled for\n");
+  printf("    --directory\n");
+  printf("    --folder\n");
+  printf("-f, --file    : file to process; stdin is default\n");
+  printf("    --input\n");
+  printf("-j, --json    : output in JSON format\n");
+  printf("    --JSON\n");
+  printf("-l, --log     : logfile (append); some errors are printed to stderr anyway\n");
+  printf("                default is stderr\n");
+  printf("-m, --mode    : mode of operations; rn = rename | se = search | tr = translate\n");
+  printf("    --op\n");
+  printf("    --operation\n");
+  printf("-n, --number  : the string to search for is a number\n");
+  printf("    --num\n");
+  printf("-o, --output  : file to write to (kablam!) stdout is default\n");
+  printf("-p, --prefix  : input file prefix\n");
+  printf("-r, --recurse : engage recursive mode; hang children\n");
+  printf("    --tree\n");
+  printf("-s, --search  : string or number to search for\n");
+  printf("-y, --yaml    : output in YAML format (default)\n");
+  printf("    --YAML\n");
+  exit(0);
  }
  if(f.version)
  {
@@ -293,7 +302,7 @@ int beginops(int argc, char **argv)
   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), *infnamebatch, strlen(*infnamebatch));
   dcmtree_parsefile(meta, body, fullname, 1); 
 
-  dcmsearchreplace_searchval(found, body, "DERIVED\\SECONDARY\\DRR ", 22);
+  dcmsearchreplace_searchval(found, body, f->search, strlen(f->search));
   printf("nfound %u firstfound 0x%lX\n", found->p, (unsigned long)*found->els);
  }
 

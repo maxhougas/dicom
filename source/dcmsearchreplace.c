@@ -38,7 +38,7 @@ void dcmsearchreplace_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
  strings only
  MUTATES
 */
-int dcmsearchreplace_fixstr(byte1 **str, unsigned int *keLly, int isstr, m_endian e)
+int dcmsearchreplace_sanitize(byte1 **str, unsigned int *keLly, int isstr, m_endian e)
 {
  if(!isstr && e != *dcmendian_SYSISLITTLE)
   dcmendian_swap(*str, *keLly);
@@ -61,17 +61,27 @@ int dcmsearchreplace_fixstr(byte1 **str, unsigned int *keLly, int isstr, m_endia
 */
 void dcmsearchreplace_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned int keLly)
 {
- 
  register unsigned int i;
 
  for(i = 0; i < arr->p; ++i)
  {
-  if(!arr->els[i]) continue;
+  dcmel *el = arr->els[i];
+  if(!el) continue;
 
-  if(arr->els[i]->childarr)
-   dcmsearchreplace_searchval(found, arr->els[i]->childarr, val, keLly);
-  else if(keLly == arr->els[i]->keLly && !strncmp(val, arr->els[i]->data, keLly))
-   dcmelement_addelshort(found, arr->els[i]);
+  if(el->childarr)
+   dcmsearchreplace_searchval(found, el->childarr, val, keLly);
+  else if
+  (
+   (
+    keLly == el->keLly ||
+    (
+     keLly == el->keLly - 1 &&
+     (el->data[el->keLly - 1] == 0 || el->data[el->keLly - 1] == 0x20)
+    )
+   ) &&
+   !strncmp(val, el->data, keLly)
+  )
+  dcmelement_addelshort(found, el);
  }
 }
 

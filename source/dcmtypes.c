@@ -89,8 +89,10 @@ typedef struct
  unsigned int  json;
  char         *log;
  char         *mode;
+ unsigned int  number;
  char         *output;
  char         *prefix;
  unsigned int  recurse;
+ char         *search;
  unsigned int  yaml;
 } flagbreakout;
