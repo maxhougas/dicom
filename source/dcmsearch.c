@@ -1,5 +1,5 @@
 /*
- dcmsearchreplace.c
+ dcmsearch.c
 
  tools for searching for dcm elements and replacing their contents
 */
@@ -14,12 +14,12 @@
 #include "dcmtree.c"
 #endif
 
-#define DCMSEARCHREPLACE 1
+#define DCMSEARCH 1
 
 /*
  DFS for a tag
 */
-void dcmsearchreplace_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
+void dcmsearch_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
 {
  register unsigned int i;
  for(i = 0; i < arr->p; ++i)
@@ -29,7 +29,7 @@ void dcmsearchreplace_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
   if(arr->els[i]->tag == tag)
    dcmelement_addel(found, arr->els[i]);
   if(arr->els[i]->childarr)
-   dcmsearchreplace_searchtag(found, arr->els[i]->childarr, tag);
+   dcmsearch_searchtag(found, arr->els[i]->childarr, tag);
  }
 }
 
@@ -38,7 +38,7 @@ void dcmsearchreplace_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
  strings only
  MUTATES
 */
-int dcmsearchreplace_sanitize(byte1 **str, unsigned int *keLly, int isstr, m_endian e)
+int dcmsearch_sanitize(byte1 **str, unsigned int *keLly, int isstr, m_endian e)
 {
  if(!isstr && e != *dcmendian_SYSISLITTLE)
   dcmendian_swap(*str, *keLly);
@@ -46,7 +46,7 @@ int dcmsearchreplace_sanitize(byte1 **str, unsigned int *keLly, int isstr, m_end
  {
   ++*keLly;
   *str = realloc(*str, *keLly);
-  if(!str) return dcmlog_log(l_write, NULL, "1:dcmsearchreplace_fixstr -- failed to reallocate str", 0), 1;
+  if(!str) return dcmlog_log(l_write, NULL, "1:dcmsearch_fixstr -- failed to reallocate str", 0), 1;
 
   (*str)[*keLly - 1] = 0;
  }
@@ -57,9 +57,65 @@ int dcmsearchreplace_sanitize(byte1 **str, unsigned int *keLly, int isstr, m_end
 }
 
 /*
- DFS for a value
+ sanitize numerical value for search
+ ato* functions are unstable: GIGO
 */
-void dcmsearchreplace_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned int keLly)
+void *dcmsearch_nsanitize(byte1 *str, m_endian e, unsigned int isint, size_t width)
+{
+ static void *nums[8];
+ static short i2 (short*)num;
+ static int i4 = (int*)num;
+ static long i8 = (long*)num;
+ static float f = (float*)num;
+ static double d = (double*)num;
+
+ unsigned long long sum = 0;
+ int neg = str[0] == '-'
+ register unsigned int i;
+ for(i = 0; str[strlen(str) - i] >= 0x30 && str[strlen(str) - i] <= 0x39; ++i)
+  sum += (str[strlen(str) - i] - 0x30) * 10 * (i+1);
+
+ if(sum)
+
+ if(str[i] == '.')
+ {
+  d = atod(str);
+  f = (float)d;
+ }
+
+ sum *= -1*neg;
+ return &sum;
+
+
+
+ if(width == 2 && e == *dcmendian_SYSISLITTLE)
+  *i2 = atoi(str);
+
+
+ switch(width)
+ {
+ case 2:
+  *i2 = (short)atoi(str);
+  if(e != *dcmendian_SYSISLITTLE)
+   *i2 = ((*i2 & 0xFF)<<8) + ((*i2 & 0xFF00)>>8);
+ break;
+ case 4:
+  if(isint && e == *dcmendian_SYSISLITTLE)
+   *i4 = atoi(str);
+  else if(isint && e != *dcmendian_SYSISLITTLE)
+   *i4 = dcmendian_4flip(atoi(str));
+  else
+   *f = (float)atof(str);
+ break;
+ case 8:
+ }
+
+}
+
+/*
+ DFS for a literal value
+*/
+void dcmsearch_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned int keLly)
 {
  register unsigned int i;
 
@@ -69,7 +125,7 @@ void dcmsearchreplace_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsi
   if(!el) continue;
 
   if(el->childarr)
-   dcmsearchreplace_searchval(found, el->childarr, val, keLly);
+   dcmsearch_searchval(found, el->childarr, val, keLly);
   else if
   (
    (
@@ -85,8 +141,13 @@ void dcmsearchreplace_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsi
  }
 }
 
+void dcmsearch_searchnval(dcmelarr *found, dcmelarr *arr, byte4 *val)
+{
+ register unsigned int i;
+}
+
 #ifdef UNDEFINED
-dcmel *dcmsearchreplace_cpbody(unsigned int *codepoint, unsigned int metal, dcmelarr *body)
+dcmel *dcmsearch_cpbody(unsigned int *codepoint, unsigned int metal, dcmelarr *body)
 {
  if(codepoint < 132 + metal)
   return NULL;
@@ -100,7 +161,7 @@ dcmel *dcmsearchreplace_cpbody(unsigned int *codepoint, unsigned int metal, dcme
   *codepoint -= body->els[i]->metakeLly + body->els[i]->effectivekeLly;
   if(body->els[i]->childarr)
   {
-   dcmel *foundchild = dcmsearchreplace_cpbody(codepoint, 0, body->els[i]->childarr)
+   dcmel *foundchild = dcmsearch_cpbody(codepoint, 0, body->els[i]->childarr)
    if(foundchild) return foundchild;
   }
  }
@@ -116,12 +177,12 @@ dcmel *dcmsearchreplace_cpbody(unsigned int *codepoint, unsigned int metal, dcme
  replace a value
  MUTATES
 */
-int dcmsearchreplace_replacebody(dcmel *target, byte1 *newval, unsigned int keLly)
+int dcmsearch_replacebody(dcmel *target, byte1 *newval, unsigned int keLly)
 {
  if(target->childarr)
-  return dcmlog_log(l_write, NULL, "1:dcmsearchreplace_replacebody -- target is childable", 0), 1;
+  return dcmlog_log(l_write, NULL, "1:dcmsearch_replacebody -- target is childable", 0), 1;
  if(keLly % 2)
-  return dcmlog_log(l_write, NULL, "2:dcmsearchreplace_replacebody -- invalid length", 0), 2;
+  return dcmlog_log(l_write, NULL, "2:dcmsearch_replacebody -- invalid length", 0), 2;
 
  dcmel *parent;
  unsigned int diff;
@@ -166,9 +227,9 @@ void dcmserachreplace_out(dcmelarr *meta, dcmelarr *body, char *outfname)
 /*
  get a dcmelarr of matches
 */
-int dcmsearchreplace_search(dcmelarr **found, dcmelarr *arr, byte4 tag)
+int dcmsearch_search(dcmelarr **found, dcmelarr *arr, byte4 tag)
 {
- if(!arr) return dcmlog_log(l_write, NULL, "1:dcmsearchreplace_search -- unrecursed is null", 0)1;
+ if(!arr) return dcmlog_log(l_write, NULL, "1:dcmsearch_search -- unrecursed is null", 0)1;
 
  dcmelement_mkarr(found);
 
@@ -180,7 +241,7 @@ int dcmsearchreplace_search(dcmelarr **found, dcmelarr *arr, byte4 tag)
    if((*found)->p == (*found)->l)
    {
     (*found)->els = realloc((*found)->els, sizeof(dcmel) * ((*found)->l + dcmelement_ARRTOADD));
-    if(!(*found)->els) return dcmlog_log(l_write, NULL, "1:dcmsearchreplace_search -- failed to expand found->els", 0)2;
+    if(!(*found)->els) return dcmlog_log(l_write, NULL, "1:dcmsearch_search -- failed to expand found->els", 0)2;
     (*found)->l += dcmelement_ARRTOADD;
    }
 
@@ -191,7 +252,7 @@ int dcmsearchreplace_search(dcmelarr **found, dcmelarr *arr, byte4 tag)
   if((*found)->p < (*found)->l)
   {
    (*found)->els = realloc((*found)->els, sizeof(dcmel) * (*found)->p);
-   if((*found)->els = NULL) return dcmlog_log(l_write, NULL, "3:dcmsearchreplace_search -- failed to shrink found->els", 0)3;
+   if((*found)->els = NULL) return dcmlog_log(l_write, NULL, "3:dcmsearch_search -- failed to shrink found->els", 0)3;
    (*found)->l = (*found)->p;
   }
 

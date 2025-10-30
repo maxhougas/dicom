@@ -10,7 +10,7 @@
 #include "dcmendian.c"
 #include "dcmezbuff.c"
 #include "dcmname.c"
-#include "dcmsearchreplace.c"
+#include "dcmsearch.c"
 
 #ifndef DCMTREE
 #include "dcmtree.c"
@@ -302,7 +302,9 @@ int beginops(int argc, char **argv)
   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), *infnamebatch, strlen(*infnamebatch));
   dcmtree_parsefile(meta, body, fullname, 1); 
 
-  dcmsearchreplace_searchval(found, body, f->search, strlen(f->search));
+  if(f->number)
+
+  dcmsearch_searchval(found, body, f->search, strlen(f->search));
   printf("nfound %u firstfound 0x%lX\n", found->p, (unsigned long)*found->els);
  }
 

@@ -17,9 +17,23 @@ typedef char byte1;
 #ifdef _STDINT_H
  typedef uint16_t byte2;
  typedef uint32_t byte4;
+ typedef uint64_t byte8;
 #else
  typedef unsigned short byte2;
  typedef unsigned int byte4;
+ typedef unsigned long byte8;
+#endif
+
+#ifdef _STDINT_H
+ typedef  int8_t sbyte1;
+ typedef int16_t sbyte2;
+ typedef int32_t sbyte4;
+ typedef int64_t sybte8;
+#else
+ typedef signed char  sbyte1;
+ typedef signed short sbyte2;
+ typedef signed int   sbyte4;
+ typedef signed long  sbyte8;
 #endif
 
 typedef enum
@@ -96,3 +110,15 @@ typedef struct
  char         *search;
  unsigned int  yaml;
 } flagbreakout;
+
+typedef struct
+{
+ unsigned short *us;
+   signed short *ss;
+ unsigned   int *ui;
+   signed   int *si;
+ unsigned  long *ul;
+   signed  long *sl;
+          float  *f;
+         double  *d;
+} nums;
