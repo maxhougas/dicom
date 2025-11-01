@@ -58,58 +58,97 @@ int dcmsearch_sanitize(byte1 **str, unsigned int *keLly, int isstr, m_endian e)
 
 /*
  sanitize numerical value for search
- ato* functions are unstable: GIGO
 */
-void *dcmsearch_nsanitize(byte1 *str, m_endian e, unsigned int isint, size_t width)
+nums *dcmsearch_nsanitize(byte1 *str, m_endian e)
 {
- static void *nums[8];
- static short i2 (short*)num;
- static int i4 = (int*)num;
- static long i8 = (long*)num;
- static float f = (float*)num;
- static double d = (double*)num;
+ /* maybe a void* array instead */
+ static nums parsed;
+ parsed.us = NULL;
+ parsed.ss = NULL;
+ parsed.ui = NULL;
+ parsed.si = NULL;
+ parsed.ul = NULL;
+ parsed.sl = NULL;
+ parsed.f  = NULL;
+ parsed.d  = NULL;
+ static byte2  us;
+ static sbyte2 ss;
+ static byte4  ui;
+ static sbyte4 si;
+ static byte8  ul;
+ static sbyte8 sl;
+ static float   f;
+ static double  d;
 
- unsigned long long sum = 0;
- int neg = str[0] == '-'
+ ul = 0;
+ byte8 last = 0;
  register unsigned int i;
- for(i = 0; str[strlen(str) - i] >= 0x30 && str[strlen(str) - i] <= 0x39; ++i)
-  sum += (str[strlen(str) - i] - 0x30) * 10 * (i+1);
+ register unsigned int mul = 1;
+ for(i = 1; i <= strlen(str) && str[strlen(str) - i] >= 0x30 && str[strlen(str) - i] <= 0x39; ++i)
+ {
+  last = ul;
+  ul += (str[strlen(str) - i] - 0x30) * mul;
+  if(last > ul)
+   return dcmlog_log(l_write, NULL, "1:dcmsearch_nsanitize -- overflow", 0), NULL;
+  mul *= 10;
+ }
 
- if(sum)
+  d = atof(str);
+  parsed.d = &d;
+  f = (float)d;
+  parsed.f = &f;
 
  if(str[i] == '.')
+  return &parsed;
+ if(*str == '-')
  {
-  d = atod(str);
-  f = (float)d;
+  if(ul < 0x10000)
+  {
+   ss = (sbyte2)ul;
+   ss *= -1;
+   parsed.ss = &ss;
+  }
+  if(ul < 0x100000000)
+  {
+   si = (sbyte4)ul;
+   si *= -1;
+   parsed.si = &si;
+  }
+  sl = (sbyte8)ul;
+  sl *= -1;
+  parsed.sl = &sl;
+ }
+ else
+ {
+  if(ul < 0x8000)
+  {
+   ss = (sbyte2)ul;
+   parsed.ss = &ss;
+  }
+  if(ul < 0x10000)
+  {
+   us = (byte2)ul;
+   parsed.us = &us;
+  }
+  if(ul < 0x80000000)
+  {
+   si = (sbyte4)ul;
+   parsed.si = &si;
+  }
+  if(ul < 0x100000000)
+  {
+   ui = (byte8)ul;
+   parsed.ui = &ui;
+  }
+  if(ul < 0x8000000000000000)
+  {
+   sl = (sbyte8)ul;
+   parsed.sl = &sl;
+  }
+  parsed.ul = &ul;
  }
 
- sum *= -1*neg;
- return &sum;
-
-
-
- if(width == 2 && e == *dcmendian_SYSISLITTLE)
-  *i2 = atoi(str);
-
-
- switch(width)
- {
- case 2:
-  *i2 = (short)atoi(str);
-  if(e != *dcmendian_SYSISLITTLE)
-   *i2 = ((*i2 & 0xFF)<<8) + ((*i2 & 0xFF00)>>8);
- break;
- case 4:
-  if(isint && e == *dcmendian_SYSISLITTLE)
-   *i4 = atoi(str);
-  else if(isint && e != *dcmendian_SYSISLITTLE)
-   *i4 = dcmendian_4flip(atoi(str));
-  else
-   *f = (float)atof(str);
- break;
- case 8:
- }
-
+ return &parsed;
 }
 
 /*
@@ -141,12 +180,12 @@ void dcmsearch_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned in
  }
 }
 
+#ifdef UNDEFINED
 void dcmsearch_searchnval(dcmelarr *found, dcmelarr *arr, byte4 *val)
 {
  register unsigned int i;
 }
 
-#ifdef UNDEFINED
 dcmel *dcmsearch_cpbody(unsigned int *codepoint, unsigned int metal, dcmelarr *body)
 {
  if(codepoint < 132 + metal)

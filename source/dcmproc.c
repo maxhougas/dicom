@@ -307,6 +307,12 @@ int beginops(int argc, char **argv)
   dcmsearch_searchval(found, body, f->search, strlen(f->search));
   printf("nfound %u firstfound 0x%lX\n", found->p, (unsigned long)*found->els);
  }
+ else
+ {
+  nums *n = dcmsearch_nsanitize("2",0);
+
+  printf("%u %d %u %d %lu %lu %f %f\n", *n->us, *n->ss, *n->ui, *n->si, *n->ul, *n->sl, *n->f, *n->d);
+ }
 
  dcmlog_log(l_write, NULL, "Operations complete", clock());
  dcmlog_log(l_close, NULL, NULL, 0);
