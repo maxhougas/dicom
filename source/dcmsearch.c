@@ -83,7 +83,7 @@ nums *dcmsearch_nsanitize(byte1 *str, m_endian e)
  ul = 0;
  byte8 last = 0;
  register unsigned int i;
- register unsigned int mul = 1;
+ unsigned long mul = 1;
  for(i = 1; i <= strlen(str) && str[strlen(str) - i] >= 0x30 && str[strlen(str) - i] <= 0x39; ++i)
  {
   last = ul;
