@@ -10,6 +10,9 @@
 #ifndef DCMEZBUFF
 #include "dcmezbuff.c"
 #endif
+#ifndef DCMTHETABLE
+#include "dcmthetable.c"
+#endif
 #ifndef DCMTREE
 #include "dcmtree.c"
 #endif
@@ -58,6 +61,7 @@ int dcmsearch_sanitize(byte1 **str, unsigned int *keLly, int isstr, m_endian e)
 
 /*
  sanitize numerical value for search
+ sanity checking is *brittle*
 */
 nums *dcmsearch_nsanitize(byte1 *str, m_endian e)
 {
@@ -93,10 +97,19 @@ nums *dcmsearch_nsanitize(byte1 *str, m_endian e)
   mul *= 10;
  }
 
-  d = atof(str);
-  parsed.d = &d;
-  f = (float)d;
-  parsed.f = &f;
+ --i;
+ if
+ (
+  (str[strlen(str) - i] > 0x39 || str[strlen(str) - i] < 0x30) &&
+  str[strlen(str) - i] != '.' &&
+  !(str[strlen(str) - i] == '-' && i == strlen(str))
+ )
+  return dcmlog_log(l_write, NULL, "2:dcmsearch_nsanitize -- not a number", 0), NULL;
+
+ d = atof(str);
+ parsed.d = &d;
+ f = (float)d;
+ parsed.f = &f;
 
  if(str[i] == '.')
   return &parsed;
@@ -148,6 +161,17 @@ nums *dcmsearch_nsanitize(byte1 *str, m_endian e)
   parsed.ul = &ul;
  }
 
+
+ if(e != *dcmendian_SYSISLITTLE)
+ {
+  us = dcmendian_2flip(us);
+  ss = dcmendian_2flip(us);
+  ui = dcmendian_4flip(ui);
+  si = dcmendian_4flip(us);
+  ul = dcmendian_8flip(ul);
+  sl = dcmendian_8flip(sl);
+ }
+
  return &parsed;
 }
 
@@ -157,7 +181,6 @@ nums *dcmsearch_nsanitize(byte1 *str, m_endian e)
 void dcmsearch_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned int keLly)
 {
  register unsigned int i;
-
  for(i = 0; i < arr->p; ++i)
  {
   dcmel *el = arr->els[i];
@@ -180,12 +203,36 @@ void dcmsearch_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned in
  }
 }
 
-#ifdef UNDEFINED
-void dcmsearch_searchnval(dcmelarr *found, dcmelarr *arr, byte4 *val)
+/*
+ serch for numerical value
+*/
+#define elvris(el,rep) (!memcmp(el->vr,rep,2) || !memcmp(dcmthetable_getvr(el->tag),rep,2))
+void dcmsearch_searchnval(dcmelarr *found, dcmelarr *arr, nums *val)
 {
  register unsigned int i;
+ for(i = 0; i < arr->p; ++i)
+ {
+  dcmel *el = arr->els[i];
+  if(!el) continue;
+
+  if(el->childarr)
+   dcmsearch_searchnval(found, el->childarr, val);
+  else if
+  (
+   (el->keLly == 2 && val->us && *val->us == *( byte2*)el->data && elvris(el,"US")) ||
+   (el->keLly == 2 && val->ss && *val->ss == *(sbyte2*)el->data && elvris(el,"SS")) ||
+   (el->keLly == 4 && val->ui && *val->ui == *( byte4*)el->data && elvris(el,"UI")) ||
+   (el->keLly == 4 && val->si && *val->si == *(sbyte4*)el->data && elvris(el,"SI")) ||
+   (el->keLly == 8 && val->ul && *val->ul == *( byte8*)el->data && elvris(el,"UL")) ||
+   (el->keLly == 8 && val->sl && *val->sl == *(sbyte8*)el->data && elvris(el,"SL")) ||
+   (el->keLly == 4 && val->f  && *val->f  == *( float*)el->data && elvris(el,"FL")) ||
+   (el->keLly == 8 && val->d  && *val->d  == *(double*)el->data && elvris(el,"FD"))
+  )
+   dcmelement_addelshort(found,el);
+ }
 }
 
+#ifdef UNDEFINED
 dcmel *dcmsearch_cpbody(unsigned int *codepoint, unsigned int metal, dcmelarr *body)
 {
  if(codepoint < 132 + metal)

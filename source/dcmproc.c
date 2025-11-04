@@ -270,9 +270,11 @@ int beginops(int argc, char **argv)
   dcmlog_log(l_close, NULL, NULL, 0);
   return 1;
  }
+/*
  char *fullfile = malloc(strlen(f->prefix) + strlen(infnamebatch[0]) + 1);
  memcpy(fullfile, f->prefix, strlen(f->prefix) + 1);
  strcat(fullfile, infnamebatch[0]);
+*/
 
  if(!strcmp(f->mode, "tr"))
  {
@@ -296,21 +298,56 @@ int beginops(int argc, char **argv)
  {
   dcmelarr *meta = dcmelement_mkarr();
   dcmelarr *body = dcmelement_mkarr();
+  if(dcmtree_parsefile(meta, body, f->prefix, *infnamebatch))
+  {
+   dcmlog_log(l_write, NULL, "3:beginops -- failed to parse file", 0); 
+   dcmlog_log(l_close, NULL, NULL, 0);
+   return 3;
+  }
+
   dcmelarr *found = dcmelement_mkarrshort();
-
-  char fullname[dcmutil_SMALLSTRKELLY];
-  dcmutil_concat(fullname, f->prefix, strlen(f->prefix), *infnamebatch, strlen(*infnamebatch));
-  dcmtree_parsefile(meta, body, fullname, 1); 
-
   if(f->number)
-
-  dcmsearch_searchval(found, body, f->search, strlen(f->search));
+  {
+   nums *n = dcmsearch_nsanitize(f->search,1);
+   if(!n)
+   {
+    dcmlog_log(l_write, NULL, "4:beginops -- failed to parse number", 0);
+    dcmlog_log(l_close, NULL, NULL, 0);
+    return 4;
+   }
+   if(n->us)
+    printf("us %u\n", *n->us);
+   if(n->ss)
+    printf("ss %d\n", *n->ss);
+   if(n->ui)
+    printf("ui %d\n", *n->ui);
+   if(n->si)
+    printf("si %d\n", *n->si);
+   if(n->ul)
+    printf("ul %lu\n", *n->ul);
+   if(n->sl)
+    printf("sl %ld\n", *n->sl);
+   if(n->f)
+    printf("f  %f\n", *n->f);
+   if(n->d)
+    printf("d  %f\n", *n->d);
+   dcmsearch_searchnval(found, body, n);
+  }
+  else
+   dcmsearch_searchval(found, body, f->search, strlen(f->search));
   printf("nfound %u firstfound 0x%lX\n", found->p, (unsigned long)*found->els);
  }
  else
  {
-  nums *n = dcmsearch_nsanitize("2",0);
+  nums *n = dcmsearch_nsanitize("512",1);
+  dcmelarr *meta = dcmelement_mkarr();
+  dcmelarr *body = dcmelement_mkarr();
+  dcmtree_parsefile(meta, body, f->prefix, *infnamebatch); 
 
+  dcmelarr *found = dcmelement_mkarrshort();
+  dcmsearch_searchnval(found, body, n);
+
+  printf("nfound %u firstfound 0x%lX\n", found->p, (unsigned long)*found->els);
   printf("%u %d %u %d %lu %lu %f %f\n", *n->us, *n->ss, *n->ui, *n->si, *n->ul, *n->sl, *n->f, *n->d);
  }
 

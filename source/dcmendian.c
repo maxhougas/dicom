@@ -15,7 +15,9 @@
 
 #define DCMENDIAN 1
 
+#define dcmendian_2flip(a) ((((a)&0xFF00)>>8) + (((a)&0xFF)<<8))
 #define dcmendian_4flip(a) ((((a)&0xFF000000)>>24) + (((a)&0xFF0000)>>8) + (((a)&0xFF00)<<8) + (((a)&0xFF)<<24))
+#define dcmendian_8flip(a) ((((a)&0xFF00000000000000)>>56) + (((a)&0xFF000000000000)>>40) + (((a)&0xFF0000000000)>>24) + (((a)&0xFF00000000)>>8) + (((a)&0xFF000000)<<8) + (((a)&0xFF0000)<<24) + (((a)&0xFF00)<<40) + (((a)&0xFF)<<56))
 
 const int dcmendian_ENDIANINT = 1;
 const char *dcmendian_SYSISLITTLE = (char*)&dcmendian_ENDIANINT;

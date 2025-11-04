@@ -252,8 +252,11 @@ void dcmtree_trim(dcmelarr *arr)
 /*
  parse filename into dcmelaarr; possilby recurse
 */
-int dcmtree_parsefile(dcmelarr *meta, dcmelarr *body, char *dicomfname, int recurse)
+int dcmtree_parsefile(dcmelarr *meta, dcmelarr *body, char *prefix, char* fname)
 {
+ char dicomfname[dcmutil_SMALLSTRKELLY];
+ dcmutil_concat(dicomfname, prefix, strlen(prefix), fname, strlen(fname));
+
  dcmbuff *buff = dcmbuff_loaddicom(dicomfname);
  if(!buff) return dcmlog_log(l_write, NULL, "1:dcmtree_parsefile -- failed to load buffer", 0), 1;
 
@@ -264,17 +267,32 @@ int dcmtree_parsefile(dcmelarr *meta, dcmelarr *body, char *dicomfname, int recu
  if(dcmtree_procfilebody(body, &mode ,buff))
   return dcmlog_log(l_write, NULL, "3:dcmtree_parsefile -- failed to proc file body", 0), 3;
 
- if(recurse)
+ register unsigned int i;
+ for(i = 0; i < body->p; ++i)
  {
-  register unsigned int i;
-  for(i = 0; i < body->p; ++i)
-  {
-   /* effectivekeLly set in dcmtree_geteldata */
-   if(body->els[i] && !body->els[i]->effectivekeLly && body->els[i]->keLly)
-    dcmtree_recursivehang(&body->els[i]);
-  }
-  dcmtree_trim(body);
+  /* effectivekeLly set in dcmtree_geteldata */
+  if(body->els[i] && !body->els[i]->effectivekeLly && body->els[i]->keLly)
+   dcmtree_recursivehang(&body->els[i]);
  }
+ dcmtree_trim(body);
+
+ return 0;
+}
+
+int dcmtree_parsefilenorecurse(dcmelarr *meta, dcmelarr *body, char *prefix, char* fname)
+{
+ char dicomfname[dcmutil_SMALLSTRKELLY];
+ dcmutil_concat(dicomfname, prefix, strlen(prefix), fname, strlen(fname));
+
+ dcmbuff *buff = dcmbuff_loaddicom(dicomfname);
+ if(!buff) return dcmlog_log(l_write, NULL, "1:dcmtree_parsefilenorecurse -- failed to load buffer", 0), 1;
+
+ tsmode mode;
+
+ if(dcmtree_procfilemeta(meta, &mode ,buff))
+  return dcmlog_log(l_write, NULL, "2:dcmtree_parsefilenorecurse -- failed to proc file meta", 0), 2;
+ if(dcmtree_procfilebody(body, &mode ,buff))
+  return dcmlog_log(l_write, NULL, "3:dcmtree_parsefilenorecurse -- failed to proc file body", 0), 3;
 
  return 0;
 }
@@ -285,13 +303,12 @@ int dcmtree_parsefile(dcmelarr *meta, dcmelarr *body, char *dicomfname, int recu
 int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfname)
 {
  FILE *outfile = strcmp(f->output, "-") ? fopen(f->output, "w") : stdout;
- if(!outfile) return dcmlog_log(l_write, NULL, " 2:dcmtree_translate -- failed to open output file", 0), 2;
+ if(!outfile) return dcmlog_log(l_write, NULL, "1:dcmtree_translate -- failed to open output file", 0), 1;
 
  /* allocate */
  clock_t *fileprocessed  = malloc(sizeof(clock_t)*ninfname);
  dcmelarr *meta = dcmelement_mkarr();
  dcmelarr *body = dcmelement_mkarr();
- char fullname[dcmutil_SMALLSTRKELLY];
 
  register unsigned int i;
  if(f->yaml && !f->recurse)
@@ -299,8 +316,8 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
   fprintf(outfile, "---\n");
   for(i = 0; i < ninfname; ++i)
   {
-   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
-   dcmtree_parsefile(meta, body, fullname, f->recurse);
+   if(dcmtree_parsefilenorecurse(meta, body, f->prefix, infnamebatch[i]))
+    return dcmlog_log(l_write, NULL, "2:dcmtree_translate -- failed to parse file", 0), 2;
    dcmoutput_yamlflat(outfile, infnamebatch[i], meta, body);
 
    fileprocessed[i] = clock();
@@ -312,8 +329,8 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
   fprintf(outfile, "---\n");
   for(i = 0; i < ninfname; ++i)
   {
-   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
-   dcmtree_parsefile(meta, body, fullname, f->recurse);
+   if(dcmtree_parsefile(meta, body,  f->prefix, infnamebatch[i]))
+    return dcmlog_log(l_write, NULL, "2:dcmtree_translate -- failed to parse file", 0), 2;
    dcmoutput_yamlrec(outfile, infnamebatch[i], meta, body);
 
    fileprocessed[i] = clock();
@@ -325,16 +342,16 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
   fprintf(outfile, "{\n");
   for(i = 0; i < ninfname - 1; ++i)
   {
-   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
-   dcmtree_parsefile(meta, body, fullname, f->recurse);
+   if(dcmtree_parsefilenorecurse(meta, body,  f->prefix, infnamebatch[i]))
+    return dcmlog_log(l_write, NULL, "2:dcmtree_translate -- failed to parse file", 0), 2;
    dcmoutput_jsonflat(outfile, infnamebatch[i], meta, body, ",\n");
 
    fileprocessed[i] = clock();
   }
 
   /* last is different */
-  dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
-  dcmtree_parsefile(meta, body, fullname, f->recurse);
+  if(dcmtree_parsefilenorecurse(meta, body,  f->prefix, infnamebatch[i]))
+   return dcmlog_log(l_write, NULL, "2:dcmtree_translate -- failed to parse file", 0), 2;
   dcmoutput_jsonflat(outfile, infnamebatch[i], meta, body, "\n}\n");
 
   fileprocessed[i] = clock();
@@ -344,16 +361,16 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
   fprintf(outfile, "{\n");
   for(i = 0; i < ninfname - 1; ++i)
   {
-   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
-   dcmtree_parsefile(meta, body, fullname, f->recurse);
+   if(dcmtree_parsefile(meta, body,  f->prefix, infnamebatch[i]))
+    return dcmlog_log(l_write, NULL, "2:dcmtree_translate -- failed to parse file", 0), 2;
    dcmoutput_jsonrec(outfile, infnamebatch[i], meta, body, "\n ],\n");
 
    fileprocessed[i] = clock();
   }
 
   /* last is different */
-  dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
-  dcmtree_parsefile(meta, body, fullname, f->recurse);
+  if(dcmtree_parsefile(meta, body,  f->prefix, infnamebatch[i]))
+   return dcmlog_log(l_write, NULL, "2:dcmtree_translate -- failed to parse file", 0), 2;
   dcmoutput_jsonrec(outfile, infnamebatch[i], meta, body, "\n ]\n}");
 
   fileprocessed[i] = clock();
@@ -361,9 +378,9 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
  else if(f->csv) /* f->csv && f->recurse not supported; guarded in doflagstuff */
   for(i = 0; i < ninfname; ++i)
   {
-   dcmutil_concat(fullname, f->prefix, strlen(f->prefix), infnamebatch[i], strlen(infnamebatch[i]));
-   dcmtree_parsefile(meta, body, fullname, f->recurse);
-   dcmoutput_csv(outfile, fullname, meta, body);
+   if(dcmtree_parsefilenorecurse(meta, body,  f->prefix, infnamebatch[i]))
+    return dcmlog_log(l_write, NULL, "2:dcmtree_translate -- failed to parse file", 0), 2;
+   dcmoutput_csv(outfile, infnamebatch[i], meta, body);
 
    fileprocessed[i] = clock();
    dcmelement_recyclearr(meta);

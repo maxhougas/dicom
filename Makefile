@@ -39,7 +39,7 @@ source/sqtags.c: tmp/thetable
 
 source/thetable.c: tmp/thetable
 	@echo 'Unrolling thetable'
-	awk -F '  ' 'BEGIN{print "#ifndef _DCMTYPES\n#include \"dcmtypes.c\"\n#endif\n\nconst byte4 ALLTAGS[] =\n{"} {print $$1","}' tmp/thetable |\
+	awk -F '  ' 'BEGIN{print "#ifndef DCMTYPES\n#include \"dcmtypes.c\"\n#endif\n\nconst byte4 ALLTAGS[] =\n{"} {print $$1","}' tmp/thetable |\
 	sed '$$s:,:\n};:' > source/thetable.c
 	awk -F '  ' 'BEGIN{print "\n\nconst char *ALLNAMES[] = \n{"} {print "\""$$2"\","}' tmp/thetable |\
 	sed '$$s:,:\n};:' >> source/thetable.c

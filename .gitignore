@@ -2,4 +2,5 @@ actualdicoms/*
 dcmproc
 source/sqtags.c
 source/thetable.c
+source/soptable.c
 testingstuff/*

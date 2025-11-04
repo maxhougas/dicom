@@ -57,15 +57,6 @@ typedef enum
  r_recurse
 } m_recurse;
 
-typedef enum
-{
- c_tags,
- c_names,
- c_keywords,
- c_vrs,
- c_vms
-} m_column;
-
 typedef struct
 {
  m_vr v;
