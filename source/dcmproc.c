@@ -315,6 +315,7 @@ int beginops(int argc, char **argv)
     dcmlog_log(l_close, NULL, NULL, 0);
     return 4;
    }
+
    if(n->us)
     printf("us %u\n", *n->us);
    if(n->ss)

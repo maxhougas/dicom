@@ -19,6 +19,25 @@
 
 #define DCMSEARCH 1
 
+typedef enum
+{
+ s_literal,
+ s_number,
+ s_tag
+} m_search;
+
+typedef struct
+{
+ byte2  *us;
+ sbyte2 *ss;
+ byte4  *ui;
+ sbyte4 *si;
+ byte8  *ul;
+ sbyte8 *sl;
+ float  *f;
+ double *d;
+} nums;
+
 /*
  DFS for a tag
 */
@@ -43,13 +62,16 @@ void dcmsearch_searchtag(dcmelarr *found, dcmelarr *arr, byte4 tag)
 */
 int dcmsearch_sanitize(byte1 **str, unsigned int *keLly, int isstr, m_endian e)
 {
+ if(*keLly % 2) return dcmlog_log(l_write, NULL, "1:dcmsearch_sanitize -- invalid length", 0), 1;
+
+
  if(!isstr && e != *dcmendian_SYSISLITTLE)
   dcmendian_swap(*str, *keLly);
  else if(isstr && *keLly % 2 && (*str)[*keLly - 1])
  {
   ++*keLly;
   *str = realloc(*str, *keLly);
-  if(!str) return dcmlog_log(l_write, NULL, "1:dcmsearch_fixstr -- failed to reallocate str", 0), 1;
+  if(!str) return dcmlog_log(l_write, NULL, "1:dcmsearch_sanitize -- failed to reallocate str", 0), 1;
 
   (*str)[*keLly - 1] = 0;
  }
@@ -57,6 +79,37 @@ int dcmsearch_sanitize(byte1 **str, unsigned int *keLly, int isstr, m_endian e)
   --keLly;
 
  return 0;
+}
+
+/*
+ DFS for a literal value
+ strings only
+*/
+int dcmsearch_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned int keLly)
+{
+ if(*keLly % 2) return dcmlog_log(l_write, NULL, "1:dcmsearch_sanitize -- invalid length", 0), 1;
+
+ register unsigned int i;
+ for(i = 0; i < arr->p; ++i)
+ {
+  dcmel *el = arr->els[i];
+  if(!el) continue;
+
+  if(el->childarr)
+   dcmsearch_searchval(found, el->childarr, val, keLly);
+  else if
+  (
+   (
+    keLly == el->keLly ||
+    (
+     keLly == el->keLly - 1 &&
+     (el->data[el->keLly - 1] == 0 || el->data[el->keLly - 1] == 0x20)
+    )
+   ) &&
+   !strncmp(val, el->data, keLly)
+  )
+  dcmelement_addelshort(found, el);
+ }
 }
 
 /*
@@ -176,39 +229,13 @@ nums *dcmsearch_nsanitize(byte1 *str, m_endian e)
 }
 
 /*
- DFS for a literal value
-*/
-void dcmsearch_searchval(dcmelarr *found, dcmelarr *arr, byte1 *val, unsigned int keLly)
-{
- register unsigned int i;
- for(i = 0; i < arr->p; ++i)
- {
-  dcmel *el = arr->els[i];
-  if(!el) continue;
-
-  if(el->childarr)
-   dcmsearch_searchval(found, el->childarr, val, keLly);
-  else if
-  (
-   (
-    keLly == el->keLly ||
-    (
-     keLly == el->keLly - 1 &&
-     (el->data[el->keLly - 1] == 0 || el->data[el->keLly - 1] == 0x20)
-    )
-   ) &&
-   !strncmp(val, el->data, keLly)
-  )
-  dcmelement_addelshort(found, el);
- }
-}
-
-/*
  serch for numerical value
 */
 #define elvris(el,rep) (!memcmp(el->vr,rep,2) || !memcmp(dcmthetable_getvr(el->tag),rep,2))
-void dcmsearch_searchnval(dcmelarr *found, dcmelarr *arr, nums *val)
+void dcmsearch_searchnval(dcmelarr *found, dcmelarr *arr, byte1 *nstr, m_endian e)
 {
+ nums *val = dcmsearch_nsanitize(nstr, e)
+ 
  register unsigned int i;
  for(i = 0; i < arr->p; ++i)
  {
@@ -230,6 +257,40 @@ void dcmsearch_searchnval(dcmelarr *found, dcmelarr *arr, nums *val)
   )
    dcmelement_addelshort(found,el);
  }
+}
+
+/*
+ output search results
+ will *not* be a valid dicom file
+*/
+int dcmsearch_dumpresults(flagbreakout *f, dcmelarr *arr)
+{
+ FILE *outfile = strcmp(f->output, "-") ? fopen(f->output, "w") : stdout;
+ if(!outfile) return dcmlog_log(l_write, NULL, "1:dcmtree_translate -- failed to open output file", 0), 1;
+
+ if(f->yaml)
+ {
+  fprintf(outfile, "---\n");
+  dcmoutput_flatarrayyaml(outfile, arr, "search_results");
+  fprintf(outfile,"...\n");
+ }
+ else if(f->json)
+ {
+  fprintf(outfile, "{\n");
+  dcmoutput_flatarrayjson(outfile, arr, "search_results");
+  fprintf(outfile, "\n}");
+ }
+ else if(f->csv) /* f->csv && f->recurse not supported; guarded in doflagstuff */
+  for(i = 0; i < ninfname; ++i)
+  {
+   if(dcmtree_parsefilenorecurse(meta, body,  f->prefix, infnamebatch[i]))
+    return dcmlog_log(l_write, NULL, "2:dcmtree_translate -- failed to parse file", 0), 2;
+   dcmoutput_csv(outfile, infnamebatch[i], meta, body);
+
+   fileprocessed[i] = clock();
+   dcmelement_recyclearr(meta);
+   dcmelement_recyclearr(body);
+  }
 }
 
 #ifdef UNDEFINED

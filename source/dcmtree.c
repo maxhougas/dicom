@@ -321,8 +321,6 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
    dcmoutput_yamlflat(outfile, infnamebatch[i], meta, body);
 
    fileprocessed[i] = clock();
-   dcmelement_recyclearr(meta);
-   dcmelement_recyclearr(body);
   }
   fprintf(outfile,"...\n");
  }
@@ -336,8 +334,6 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
    dcmoutput_yamlrec(outfile, infnamebatch[i], meta, body);
 
    fileprocessed[i] = clock();
-   dcmelement_recyclearr(meta);
-   dcmelement_recyclearr(body);
   }
   fprintf(outfile,"...\n");
  }
@@ -351,8 +347,6 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
    dcmoutput_jsonflat(outfile, infnamebatch[i], meta, body, ",\n");
 
    fileprocessed[i] = clock();
-   dcmelement_recyclearr(meta);
-   dcmelement_recyclearr(body);
   }
 
   /* last is different */
@@ -372,8 +366,6 @@ int dcmtree_translate(flagbreakout *f, char **infnamebatch, unsigned int ninfnam
    dcmoutput_jsonrec(outfile, infnamebatch[i], meta, body, "\n ],\n");
 
    fileprocessed[i] = clock();
-   dcmelement_recyclearr(meta);
-   dcmelement_recyclearr(body);
   }
 
   /* last is different */

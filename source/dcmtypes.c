@@ -98,14 +98,4 @@ typedef struct
  unsigned int  yaml;
 } flagbreakout;
 
-typedef struct
-{
- byte2  *us;
- sbyte2 *ss;
- byte4  *ui;
- sbyte4 *si;
- byte8  *ul;
- sbyte8 *sl;
- float  *f;
- double *d;
-} nums;
+
